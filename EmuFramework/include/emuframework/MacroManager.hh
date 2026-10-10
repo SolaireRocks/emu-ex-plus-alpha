@@ -55,7 +55,7 @@ struct MacroStep
 struct Macro
 {
 	static constexpr size_t maxSteps = 600;
-	std::vector<MacroStep> steps;
+	std::vector<MacroStep> steps{};
 	bool loop{};
 
 	bool empty() const { return steps.empty(); }

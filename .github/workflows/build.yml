@@ -100,7 +100,7 @@ jobs:
         { $IMAGINE_PATH/android.sh config --presets "$ANDROID_ARCHS" &&
           $IMAGINE_PATH/android.sh installLinks --config Release --presets "$ANDROID_ARCHS" &&
           $EMUFRAMEWORK_PATH/android.sh config --presets "$ANDROID_ARCHS" &&
-          $EMUFRAMEWORK_PATH/android.sh installLinks --config Release --presets "$ANDROID_ARCHS"; } 2>&1 | tee build-logs/framework.log
+          $EMUFRAMEWORK_PATH/android.sh installLinks --config Release --presets "$ANDROID_ARCHS" -- -k 0; } 2>&1 | tee build-logs/framework.log
     - name: Build Snes9x EX+
       working-directory: Snes9x
       shell: bash

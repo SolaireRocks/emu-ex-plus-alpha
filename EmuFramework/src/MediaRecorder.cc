@@ -22,6 +22,13 @@
 #include <unistd.h>
 #include <sys/types.h>
 #endif
+#include <deque>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <variant>
+#include <memory>
+#include <vector>
 import imagine;
 
 namespace EmuEx
@@ -174,7 +181,7 @@ using namespace NdkMedia;
 
 struct EncodedPacket
 {
-	std::vector<uint8_t> data;
+	std::vector<uint8_t> data{};
 	int64_t ptsUs{};
 	uint32_t flags{};
 	bool isAudio{};
@@ -277,15 +284,15 @@ private:
 
 struct VideoFrameItem
 {
-	std::vector<char> pixels;
-	PixmapDesc desc;
+	std::vector<char> pixels{};
+	PixmapDesc desc{};
 	int pitchBytes{};
 	int64_t ptsUs{};
 };
 
 struct AudioItem
 {
-	std::vector<int16_t> samples; // interleaved stereo
+	std::vector<int16_t> samples{}; // interleaved stereo
 };
 
 struct StartFileItem { int fd; };
