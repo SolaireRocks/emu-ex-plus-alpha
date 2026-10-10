@@ -115,12 +115,12 @@ jobs:
         for log in build-logs/*.log
         do
           [ -f "$log" ] || continue
-          grep -n -E "error:|Error:|Error [0-9]|FAILED|fatal|CMake Error|No such file|undefined reference|\*\*\*" "$log" | head -n 120 > errs.txt || true
+          grep -n -A6 -E "error:|Error:|Error [0-9]|FAILED|fatal|CMake Error|No such file|undefined reference|\*\*\*" "$log" | head -n 200 > errs.txt || true
           if [ ! -s errs.txt ]
           then
             tail -n 60 "$log" > errs.txt
           fi
-          split -l 12 errs.txt errpart-
+          split -l 20 errs.txt errpart-
           n=0
           for part in errpart-*
           do
