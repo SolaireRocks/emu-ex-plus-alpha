@@ -117,7 +117,12 @@ jobs:
         for log in build-logs/*.log
         do
           [ -f "$log" ] || continue
-          grep -n -A6 -E "error:|Error:|Error [0-9]|FAILED|fatal|CMake Error|No such file|undefined reference|\*\*\*" "$log" | head -n 200 > errs.txt || true
+          # unique compiler errors first, they matter most when many files fail
+          grep -E "error:|undefined reference" "$log" | sed "s|${{ github.workspace }}/||g" | awk '!seen[$0]++' | head -n 170 > errs.txt || true
+          if [ ! -s errs.txt ]
+          then
+            grep -n -A6 -E "Error:|Error [0-9]|FAILED|fatal|CMake Error|No such file|\*\*\*" "$log" | head -n 170 > errs.txt || true
+          fi
           if [ ! -s errs.txt ]
           then
             tail -n 60 "$log" > errs.txt

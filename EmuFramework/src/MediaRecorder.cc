@@ -77,7 +77,6 @@ using Status = int;
 constexpr uint32_t CONFIGURE_FLAG_ENCODE = 1;
 constexpr uint32_t BUFFER_FLAG_KEY_FRAME = 1;
 constexpr uint32_t BUFFER_FLAG_CODEC_CONFIG = 2;
-constexpr ssize_t INFO_TRY_AGAIN_LATER = -1;
 constexpr ssize_t INFO_OUTPUT_FORMAT_CHANGED = -2;
 constexpr ssize_t INFO_OUTPUT_BUFFERS_CHANGED = -3;
 constexpr int MUXER_OUTPUT_FORMAT_MPEG_4 = 0;

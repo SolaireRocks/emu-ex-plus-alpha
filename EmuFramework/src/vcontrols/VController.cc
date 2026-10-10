@@ -1514,8 +1514,10 @@ bool VController::readSessionConfig(const InputManager &mgr, MapIO &io, unsigned
 	auto &elems = isUI ? pendingGameLayout->uiElements : pendingGameLayout->gpElements;
 	elems.clear();
 	if(!isUI)
-		io.get<uint8_t>(); // emulated device id, reserved
-	io.get<uint8_t>(); // config id, reserved
+	{
+		[[maybe_unused]] auto emuDeviceId = io.get<uint8_t>(); // reserved
+	}
+	[[maybe_unused]] auto configId = io.get<uint8_t>(); // reserved
 	auto elements = io.get<uint8_t>();
 	log.info("read per-game {} button data with {} element(s)", isUI ? "UI" : "device", elements);
 	for([[maybe_unused]] auto i: iotaCount(elements))

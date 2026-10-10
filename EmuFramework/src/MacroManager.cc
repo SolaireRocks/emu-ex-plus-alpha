@@ -55,7 +55,7 @@ void MacroStep::removeKey(KeyCode c)
 			k = 0;
 	}
 	// keep used keys packed at the front
-	std::ranges::stable_partition(keys, [](KeyCode k){ return k != 0; });
+	(void)std::ranges::stable_partition(keys, [](KeyCode k){ return k != 0; });
 }
 
 int MacroStep::keyCount() const
@@ -300,7 +300,7 @@ void MacroManager::recordKeyEvent(KeyInfo key, bool pushed)
 	}
 	if(!changed)
 		return;
-	std::ranges::stable_partition(recordHeld, [](KeyCode k){ return k != 0; });
+	(void)std::ranges::stable_partition(recordHeld, [](KeyCode k){ return k != 0; });
 	if(recordedEvents.empty() && std::ranges::all_of(recordHeld, [](KeyCode k){ return k == 0; }))
 		return; // don't start the macro with a release
 	auto frame = recordFrame.load(std::memory_order_relaxed);
