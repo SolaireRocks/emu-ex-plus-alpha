@@ -1,5 +1,9 @@
 # Custom Snes9x EX+ features: how to use them
 
+This build installs as a separate app, **Snes9x EX+ Custom** (`com.explusalpha.Snes9xPlus.custom`), so it can sit
+next to the Play Store version. It keeps its own settings, so copy save files over if you want to keep them.
+
+
 All of these work with the **on-screen touch controls**. Most new actions can also be mapped to a physical
 controller under *Key/Gamepad Input Setup*, in the "In-Emulation Actions" category.
 
