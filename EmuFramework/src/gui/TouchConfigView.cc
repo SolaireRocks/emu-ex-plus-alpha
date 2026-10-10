@@ -52,7 +52,27 @@ static void addCategories(EmuApp&, VControllerElement &elem, auto &&addCategory)
 		{
 			addCategory(cat);
 		}
+		if(!elem.dPad())
+			addCategory(appKeyCategory); // allow app actions (fast-forward speeds, macros, etc.) as gamepad buttons
 	}
+}
+
+// Lets the user pick a system key, used to build combination buttons like A + B
+static void pushComboKeyPicker(View &view, EmuApp &app, const Input::Event &e, std::string_view title, auto &&onPick)
+{
+	auto multiChoiceView = view.makeViewWithName<TextTableView>(title, 16);
+	auto &cat = AppMeta::keyCategories()[0];
+	for(auto &k : cat.keys)
+	{
+		if(k.flags.turbo || k.flags.toggle || k.codes[1])
+			continue;
+		multiChoiceView->appendItem(app.inputManager.toString(k),
+			[k, onPick](View &parentView, const Input::Event &e)
+			{
+				onPick(k, parentView, e);
+			});
+	}
+	view.pushAndShow(std::move(multiChoiceView), e);
 }
 
 class DPadElementConfigView : public TableView, public EmuAppHelper
@@ -304,6 +324,8 @@ public:
 				btn.key.flags.turbo = item.flipBoolValue(*this);
 				key.set2ndName(app().inputManager.toString(btn.key));
 				key.place2nd();
+				vCtrl.update(elem);
+				vCtrl.place();
 				onChange.callSafe();
 			}
 		},
@@ -316,7 +338,32 @@ public:
 				btn.key.flags.toggle = item.flipBoolValue(*this);
 				key.set2ndName(app().inputManager.toString(btn.key));
 				key.place2nd();
+				vCtrl.update(elem);
+				vCtrl.place();
 				onChange.callSafe();
+			}
+		},
+		addComboKey
+		{
+			"Add Key To Combo (Press Together)", attach,
+			[this](const Input::Event &e)
+			{
+				pushComboKeyPicker(*this, app(), e, "Add Key To Combo",
+					[this](KeyInfo k, View &parentView, const Input::Event &)
+					{
+						addKeyToCombo(k);
+						parentView.dismiss();
+					});
+			}
+		},
+		clearCombo
+		{
+			"Remove Extra Combo Keys", attach,
+			[this]
+			{
+				btn.key.codes[1] = 0;
+				btn.key.codes[2] = 0;
+				keyChanged();
 			}
 		},
 		remove
@@ -349,6 +396,8 @@ private:
 	DualTextMenuItem key;
 	BoolMenuItem turbo;
 	BoolMenuItem toggle;
+	TextMenuItem addComboKey;
+	TextMenuItem clearCombo;
 	TextMenuItem remove;
 	std::vector<MenuItem*> item;
 
@@ -360,8 +409,42 @@ private:
 		{
 			item.emplace_back(&turbo);
 			item.emplace_back(&toggle);
+			if(elem.buttonGroup())
+			{
+				item.emplace_back(&addComboKey);
+				if(btn.key.codes[1])
+					item.emplace_back(&clearCombo);
+			}
 		}
 		item.emplace_back(&remove);
+	}
+
+	void keyChanged()
+	{
+		key.set2ndName(app().inputManager.toString(btn.key));
+		key.place2nd();
+		vCtrl.update(elem);
+		onChange.callSafe();
+		vCtrl.place();
+		reloadItems();
+		place();
+	}
+
+	void addKeyToCombo(KeyInfo k)
+	{
+		auto code = k.codes[0];
+		if(std::ranges::contains(btn.key.codes, code))
+			return;
+		if(!btn.key.codes[1])
+			btn.key.codes[1] = code;
+		else if(!btn.key.codes[2])
+			btn.key.codes[2] = code;
+		else
+		{
+			app().postMessage("A combo button can have at most 3 keys");
+			return;
+		}
+		keyChanged();
 	}
 };
 
@@ -594,6 +677,34 @@ public:
 				pushAndShow(std::move(multiChoiceView), e);
 			}
 		},
+		addCombo
+		{
+			"Add Combo Button (e.g. A + B)", attach,
+			[this](const Input::Event &e)
+			{
+				pushComboKeyPicker(*this, app(), e, "Combo: First Key",
+					[this](KeyInfo k, View &parentView, const Input::Event &e)
+					{
+						pendingComboKey = k;
+						parentView.dismiss();
+						pushComboKeyPicker(*this, app(), e, "Combo: Second Key",
+							[this](KeyInfo k2, View &parentView, const Input::Event &)
+							{
+								auto k1 = pendingComboKey;
+								if(k1.codes[0] != k2.codes[0])
+								{
+									elem.add(KeyInfo{std::array{k1.codes[0], k2.codes[0]}, k1.flags});
+									vCtrl.update(elem);
+									vCtrl.setInputPlayer(vCtrl.inputPlayer());
+									vCtrl.place();
+									confView.reloadItems();
+									reloadItems();
+								}
+								parentView.dismiss();
+							});
+					});
+			}
+		},
 		remove
 		{
 			"Remove This Button Group", attach,
@@ -646,10 +757,12 @@ private:
 	MultiChoiceMenuItem extraYSize;
 	BoolMenuItem showBoundingArea;
 	TextMenuItem add;
+	TextMenuItem addCombo;
 	TextMenuItem remove;
 	TextHeadingMenuItem buttonsHeading;
 	std::vector<TextMenuItem> buttonItems;
 	std::vector<MenuItem*> item;
+	KeyInfo pendingComboKey{};
 
 	void reloadItems()
 	{
@@ -666,6 +779,8 @@ private:
 		}
 		item.emplace_back(&rowSize);
 		item.emplace_back(&add);
+		if(elem.buttonGroup())
+			item.emplace_back(&addCombo);
 		item.emplace_back(&remove);
 		item.emplace_back(&buttonsHeading);
 		auto buttons = elem.buttons();
@@ -707,6 +822,18 @@ public:
 		buttons.emplace_back(
 			leftUIComponents.name, attach,
 			[this]{ add(leftUIComponents); });
+		for(const auto &c : extraUIComponents)
+		{
+			buttons.emplace_back(
+				c.name, attach,
+				[this, &c]{ add(c); });
+		}
+		buttons.emplace_back(
+			macroButtonComponents.name, attach,
+			[this]{ add(macroButtonComponents); });
+		buttons.emplace_back(
+			speedGamepadComponents.name, attach,
+			[this]{ add(speedGamepadComponents); });
 	}
 
 private:
@@ -979,6 +1106,48 @@ TouchConfigView::TouchConfigView(ViewAttachParams attach, VController &vCtrl):
 				}), e);
 		}
 	},
+	perGameLayout
+	{
+		"Use Separate Layout For This Game", attach,
+		vCtrl.usesGameLayout(),
+		[this](BoolMenuItem &item)
+		{
+			if(!system().hasContent())
+				return;
+			if(item.flipBoolValue(*this))
+			{
+				vController.enableGameLayout();
+				app().postMessage(3, false, "Button changes now only apply to this game");
+			}
+			else
+			{
+				vController.restoreGlobalLayout();
+			}
+			system().sessionOptionSet();
+			reloadItems();
+			place();
+		}
+	},
+	turboStyle
+	{
+		"Turbo Button Style", attach,
+		vCtrl.turboButtonStyle() == VControllerTurboStyle::outline,
+		"Classic", "Outline + Badge",
+		[this](BoolMenuItem &item)
+		{
+			vController.setTurboButtonStyle(item.flipBoolValue(*this) ? VControllerTurboStyle::outline : VControllerTurboStyle::classic);
+			postDraw();
+		}
+	},
+	doubleTapScreenshot
+	{
+		"Double-Tap Game For Screenshot", attach,
+		vCtrl.doubleTapScreenshot,
+		[this](BoolMenuItem &item)
+		{
+			vController.doubleTapScreenshot = item.flipBoolValue(*this);
+		}
+	},
 	devButtonsHeading
 	{
 		"Emulator Button Groups", attach
@@ -1008,6 +1177,11 @@ void TouchConfigView::reloadItems()
 	item.emplace_back(&btnPlace);
 	placeVideo.setActive(system().hasContent());
 	item.emplace_back(&placeVideo);
+	if(system().hasContent())
+	{
+		perGameLayout.setBoolValue(vController.usesGameLayout());
+		item.emplace_back(&perGameLayout);
+	}
 	item.emplace_back(&devButtonsHeading);
 	elementItems.reserve(vController.deviceElements().size() + vController.guiElements().size());
 	for(auto &elem : vController.deviceElements())
@@ -1052,6 +1226,8 @@ void TouchConfigView::reloadItems()
 	}
 	item.emplace_back(&showOnTouch);
 	item.emplace_back(&highlightPushedButtons);
+	item.emplace_back(&turboStyle);
+	item.emplace_back(&doubleTapScreenshot);
 	item.emplace_back(&alpha);
 	item.emplace_back(&resetEmuPositions);
 	item.emplace_back(&resetEmuGroups);
@@ -1062,6 +1238,13 @@ void TouchConfigView::reloadItems()
 void TouchConfigView::onShow()
 {
 	vController.applyButtonAlpha(.75);
+}
+
+TouchConfigView::~TouchConfigView()
+{
+	// Any edits made while using a per-game layout need to be saved with the game's options
+	if(vController.usesGameLayout() && system().hasContent())
+		system().sessionOptionSet();
 }
 
 }

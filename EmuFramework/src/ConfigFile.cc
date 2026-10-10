@@ -85,7 +85,14 @@ void EmuApp::saveConfigFile(FileIO &io)
 	writeOptionValueIfNotDefault(io, CFGKEY_VIDEO_LANDSCAPE_OFFSET, videoLayer.landscapeOffset, 0);
 	writeOptionValueIfNotDefault(io, CFGKEY_VIDEO_PORTRAIT_OFFSET, videoLayer.portraitOffset, 0);
 	writeOptionValueIfNotDefault(io, fastModeSpeed);
+	writeOptionValueIfNotDefault(io, fastModeSpeed2);
+	writeOptionValueIfNotDefault(io, fastModeSpeed3);
 	writeOptionValueIfNotDefault(io, slowModeSpeed);
+	writeOptionValueIfNotDefault(io, screenshotScale);
+	writeOptionValueIfNotDefault(io, screenshotAspectCorrect);
+	rollingSaveManager.writeConfig(io);
+	macroManager.writeConfig(io);
+	mediaRecorder.writeConfig(io);
 	writeOptionValueIfNotDefault(io, CFGKEY_FRAME_RATE, outputTimingManager.frameRateOption(VideoSystem::NATIVE_NTSC), OutputTimingManager::autoOption);
 	writeOptionValueIfNotDefault(io, CFGKEY_FRAME_RATE_PAL, outputTimingManager.frameRateOption(VideoSystem::PAL), OutputTimingManager::autoOption);
 	inputManager.vController.writeConfig(io);
@@ -166,6 +173,12 @@ EmuApp::ConfigParams EmuApp::loadConfigFile(ApplicationContext ctx)
 						return true;
 					if(videoLayer.readConfig(io, key))
 						return true;
+					if(rollingSaveManager.readConfig(io, key))
+						return true;
+					if(macroManager.readConfig(io, key))
+						return true;
+					if(mediaRecorder.readConfig(io, key))
+						return true;
 					log.info("skipping key:{}", key);
 					return false;
 				}
@@ -198,6 +211,10 @@ EmuApp::ConfigParams EmuApp::loadConfigFile(ApplicationContext ctx)
 				case CFGKEY_CONFIRM_OVERWRITE_STATE: return readOptionValue(io, confirmOverwriteState);
 				case CFGKEY_FAST_MODE_SPEED: return readOptionValue(io, fastModeSpeed);
 				case CFGKEY_SLOW_MODE_SPEED: return readOptionValue(io, slowModeSpeed);
+				case CFGKEY_FAST_MODE_SPEED_2: return readOptionValue(io, fastModeSpeed2);
+				case CFGKEY_FAST_MODE_SPEED_3: return readOptionValue(io, fastModeSpeed3);
+				case CFGKEY_SCREENSHOT_SCALE: return readOptionValue(io, screenshotScale);
+				case CFGKEY_SCREENSHOT_ASPECT: return readOptionValue(io, screenshotAspectCorrect);
 				case CFGKEY_NOTIFY_INPUT_DEVICE_CHANGE: return readOptionValue(io, notifyOnInputDeviceChange);
 				case CFGKEY_MOGA_INPUT_SYSTEM:
 					return MOGA_INPUT ? readOptionValue<bool>(io, [&](auto on){setMogaManagerActive(on, false);}) : false;

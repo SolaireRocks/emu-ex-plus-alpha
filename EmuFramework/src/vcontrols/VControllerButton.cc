@@ -54,6 +54,16 @@ void VControllerButton::setAlpha(float alpha)
 	{
 		spriteColor = color.multiplyRGB(alpha).multiplyRGB(brightness);
 	}
+	else if(distinctTurbo && !key.isAppKey() && (key.flags.turbo || key.flags.toggle))
+	{
+		// stronger, more saturated tints so turbo/toggle buttons stand out from regular ones
+		if(key.flags.turbo && key.flags.toggle)
+			spriteColor = Gfx::Color{alpha * 2.2f, alpha * 1.9f, alpha * .3f, alpha}.multiplyRGB(brightness); // yellow
+		else if(key.flags.turbo)
+			spriteColor = Gfx::Color{alpha * 2.4f, alpha * .9f, alpha * .25f, alpha}.multiplyRGB(brightness); // orange
+		else
+			spriteColor = Gfx::Color{alpha * .4f, alpha * 2.f, alpha * .6f, alpha}.multiplyRGB(brightness); // green
+	}
 	else
 	{
 		if(key.flags.turbo && key.flags.toggle)

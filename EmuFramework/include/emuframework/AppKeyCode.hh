@@ -50,7 +50,34 @@ enum class AppKeyCode : KeyCode
 	hardReset,
 	resetMenu,
 	closeContent,
+	// Added in custom build, keep new values at the end since they are stored in config files
+	fastForwardSpeed2,
+	fastForwardSpeed3,
+	toggleFastForwardSpeed2,
+	toggleFastForwardSpeed3,
+	saveRollingState,
+	loadRollingState,
+	toggleVideoRecording,
+	saveInstantReplay,
+	toggleMacroRecording,
+	playMacro1,
+	playMacro2,
+	playMacro3,
+	playMacro4,
+	playMacro5,
+	playMacro6,
+	playMacro7,
+	playMacro8,
 };
+
+inline constexpr int maxMacros = 8;
+
+constexpr int macroIndex(AppKeyCode code)
+{
+	if(code >= AppKeyCode::playMacro1 && code <= AppKeyCode::playMacro8)
+		return int(code) - int(AppKeyCode::playMacro1);
+	return -1;
+}
 
 inline constexpr struct AppKeys
 {
@@ -73,6 +100,23 @@ inline constexpr struct AppKeys
 	softReset = KeyInfo::appKey(AppKeyCode::softReset),
 	hardReset = KeyInfo::appKey(AppKeyCode::hardReset),
 	resetMenu = KeyInfo::appKey(AppKeyCode::resetMenu),
+	fastForwardSpeed2 = KeyInfo::appKey(AppKeyCode::fastForwardSpeed2),
+	fastForwardSpeed3 = KeyInfo::appKey(AppKeyCode::fastForwardSpeed3),
+	toggleFastForwardSpeed2 = KeyInfo::appKey(AppKeyCode::toggleFastForwardSpeed2),
+	toggleFastForwardSpeed3 = KeyInfo::appKey(AppKeyCode::toggleFastForwardSpeed3),
+	saveRollingState = KeyInfo::appKey(AppKeyCode::saveRollingState),
+	loadRollingState = KeyInfo::appKey(AppKeyCode::loadRollingState),
+	toggleVideoRecording = KeyInfo::appKey(AppKeyCode::toggleVideoRecording),
+	saveInstantReplay = KeyInfo::appKey(AppKeyCode::saveInstantReplay),
+	toggleMacroRecording = KeyInfo::appKey(AppKeyCode::toggleMacroRecording),
+	playMacro1 = KeyInfo::appKey(AppKeyCode::playMacro1),
+	playMacro2 = KeyInfo::appKey(AppKeyCode::playMacro2),
+	playMacro3 = KeyInfo::appKey(AppKeyCode::playMacro3),
+	playMacro4 = KeyInfo::appKey(AppKeyCode::playMacro4),
+	playMacro5 = KeyInfo::appKey(AppKeyCode::playMacro5),
+	playMacro6 = KeyInfo::appKey(AppKeyCode::playMacro6),
+	playMacro7 = KeyInfo::appKey(AppKeyCode::playMacro7),
+	playMacro8 = KeyInfo::appKey(AppKeyCode::playMacro8),
 	exitApp = KeyInfo::appKey(AppKeyCode::exitApp);
 
 	constexpr const KeyInfo *data() const { return &openMenu; }
@@ -116,6 +160,24 @@ inline constexpr std::array leftUIKeys{appKeys.toggleFastForward, appKeys.rewind
 
 inline constexpr InputComponentDesc rightUIComponents{"Open Menu", rightUIKeys, InputComponent::ui, RT2DO};
 inline constexpr InputComponentDesc leftUIComponents{"Fast-forward/Rewind", leftUIKeys, InputComponent::ui, LT2DO};
+
+// Extra button groups from the custom build
+inline constexpr std::array speedButtonKeys{appKeys.fastForwardSpeed2, appKeys.fastForwardSpeed3, appKeys.fastForward};
+inline constexpr std::array speedToggleButtonKeys{appKeys.toggleFastForwardSpeed2, appKeys.toggleFastForwardSpeed3, appKeys.toggleFastForward};
+inline constexpr std::array macroButtonKeys{appKeys.playMacro1, appKeys.playMacro2, appKeys.playMacro3, appKeys.playMacro4};
+inline constexpr std::array captureButtonKeys{appKeys.takeScreenshot, appKeys.saveInstantReplay, appKeys.toggleVideoRecording};
+inline constexpr std::array rollingSaveButtonKeys{appKeys.saveRollingState, appKeys.loadRollingState};
+
+inline constexpr std::array extraUIComponents
+{
+	InputComponentDesc{"Fast-forward Speeds (Hold)", speedButtonKeys, InputComponent::ui, LT2DO},
+	InputComponentDesc{"Fast-forward Speeds (Toggle)", speedToggleButtonKeys, InputComponent::ui, LT2DO},
+	InputComponentDesc{"Screenshot/Instant Replay/Record", captureButtonKeys, InputComponent::ui, RT2DO},
+	InputComponentDesc{"Rolling Save/Load", rollingSaveButtonKeys, InputComponent::ui, RT2DO},
+};
+
+inline constexpr InputComponentDesc macroButtonComponents{"Macro Buttons 1-4", macroButtonKeys, InputComponent::button, RB2DO, {.rowSize = 2}};
+inline constexpr InputComponentDesc speedGamepadComponents{"Fast-forward Speed Buttons", speedButtonKeys, InputComponent::button, LB2DO, {.rowSize = 3}};
 
 std::string_view toString(AppKeyCode);
 

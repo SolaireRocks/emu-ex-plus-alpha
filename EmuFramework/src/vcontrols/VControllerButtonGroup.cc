@@ -311,12 +311,51 @@ void VControllerUIButtonGroup::Config::validate(const InputManager &mgr)
 		layout.rowItems = 2;
 }
 
+static bool hasTurboHalo(const VControllerButton &b)
+{
+	return b.enabled && !b.key.isAppKey() && b.key.flags.turbo;
+}
+
+void VControllerButtonGroup::writeHaloSprites()
+{
+	haloCount = 0;
+	if(!haloQuads.hasTask())
+		return;
+	if(!showTurboHalo || std::ranges::none_of(buttons, hasTurboHalo))
+		return;
+	haloQuads.reset({.size = buttons.size()});
+	auto map = haloQuads.map(Gfx::BufferMapMode::indirect);
+	for(auto &b : buttons)
+	{
+		if(!hasTurboHalo(b))
+			continue;
+		// Draw an enlarged copy of the button image in a solid color behind it to create an outline
+		auto bounds = b.bounds();
+		int grow = std::max(bounds.xSize() / 9, 2);
+		auto haloBounds = bounds + WRect{{-grow, -grow}, {grow, grow}};
+		float a = std::max(b.spriteAlpha(), .35f);
+		Gfx::Color haloColor = b.key.flags.toggle ?
+			Gfx::Color{a * 1.6f, a * 1.4f, 0.f, a} : // yellow for turbo toggle
+			Gfx::Color{a * 1.8f, a * .45f, 0.f, a}; // orange for turbo
+		Gfx::ILitTexQuad({.bounds = haloBounds.as<int16_t>(), .color = haloColor, .textureSpan = b.texture}).write(map, haloCount++);
+	}
+}
+
+void VControllerButtonGroup::drawHalos(Gfx::RendererCommands &__restrict__ cmds) const
+{
+	if(!haloCount)
+		return;
+	cmds.drawQuads(haloQuads, 0, haloCount);
+}
+
 template<class Group>
 void BaseVControllerButtonGroup<Group>::drawButtons(Gfx::RendererCommands &__restrict__ cmds) const
 {
 	auto &g = static_cast<const Group&>(*this);
 	if(!g.enabledBtns)
 		return;
+	if constexpr(requires {g.drawHalos(cmds);})
+		g.drawHalos(cmds);
 	cmds.drawQuads(g.quads, 0, g.enabledBtns);
 }
 
@@ -345,6 +384,8 @@ void BaseVControllerButtonGroup<Group>::updateSprites()
 		else
 			b.updateSprite(quadsMap);
 	}
+	if constexpr(requires {g.writeHaloSprites();})
+		g.writeHaloSprites();
 }
 
 template<class Group>

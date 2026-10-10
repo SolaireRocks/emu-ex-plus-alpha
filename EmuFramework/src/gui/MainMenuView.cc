@@ -21,6 +21,7 @@
 #include "FrameTimingView.hh"
 #include "RecentContentView.hh"
 #include "InputManagerView.hh"
+#include "ExtrasOptionView.hh"
 #include <emuframework/EmuApp.hh>
 import imagine;
 
@@ -35,7 +36,7 @@ public:
 	OptionCategoryView(ViewAttachParams attach);
 
 protected:
-	TextMenuItem subConfig[8];
+	TextMenuItem subConfig[9];
 };
 
 static void onScanStatus(EmuApp &app, BluetoothScanState status, int arg);
@@ -388,6 +389,13 @@ OptionCategoryView::OptionCategoryView(ViewAttachParams attach):
 			[this](const Input::Event &e)
 			{
 				pushAndShow(app().makeView(attachParams(), EmuApp::ViewID::GUI_OPTIONS), e);
+			}
+		},
+		{
+			"Extras (Speeds, Rolling Saves, Capture)", attach,
+			[this](const Input::Event &e)
+			{
+				pushAndShow(makeView<ExtrasOptionView>(), e);
 			}
 		},
 		{

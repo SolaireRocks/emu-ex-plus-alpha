@@ -50,8 +50,10 @@ inline constexpr bool hasICadeInput = Config::Input::KEYBOARD_DEVICES;
 
 enum class AltSpeedMode
 {
-	fast, slow
+	fast, slow, fast2, fast3
 };
+
+constexpr bool isFastSpeedMode(AltSpeedMode m) { return m != AltSpeedMode::slow; }
 
 enum class OutputFrameRateMode: std::uint8_t
 {

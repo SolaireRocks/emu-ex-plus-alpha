@@ -20,6 +20,8 @@
 #include <emuframework/EmuApp.hh>
 #include <emuframework/Cheats.hh>
 #include <emuframework/StateSlotView.hh>
+#include "RollingSaveView.hh"
+#include "MacroView.hh"
 import imagine;
 
 namespace EmuEx
@@ -117,6 +119,50 @@ SystemActionsView::SystemActionsView(ViewAttachParams attach, bool customMenu):
 		[this](const Input::Event &e)
 		{
 			pushAndShow(makeView<StateSlotView>(), e);
+		}
+	},
+	rollingSaves
+	{
+		"Rolling Save States", attach,
+		[this](const Input::Event &e)
+		{
+			pushAndShow(makeView<RollingSaveView>(), e);
+		}
+	},
+	macros
+	{
+		"Macros", attach,
+		[this](const Input::Event &e)
+		{
+			pushAndShow(makeView<MacroListView>(), e);
+		}
+	},
+	videoRecording
+	{
+		"Start Video Recording", attach,
+		[this]
+		{
+			if(!system().hasContent())
+				return;
+			if(app().mediaRecorder.isRecording())
+			{
+				app().mediaRecorder.stopRecording();
+				videoRecording.compile("Start Video Recording");
+			}
+			else if(app().mediaRecorder.startRecording())
+			{
+				app().showEmulation();
+			}
+		}
+	},
+	instantReplay
+	{
+		"Save Instant Replay", attach,
+		[this]
+		{
+			if(!system().hasContent())
+				return;
+			app().mediaRecorder.saveReplay();
 		}
 	},
 	inputOverrides
@@ -218,6 +264,7 @@ void SystemActionsView::onShow()
 	autosaveNow.setActive(app().autosaveManager.slotName() != noAutosaveName);
 	revertAutosave.setActive(app().autosaveManager.slotName() != noAutosaveName);
 	resetSessionOptions.setActive(app().hasSavedSessionOptions());
+	videoRecording.compile(app().mediaRecorder.isRecording() ? "Stop Video Recording" : "Start Video Recording");
 }
 
 void SystemActionsView::loadStandardItems()
@@ -231,6 +278,13 @@ void SystemActionsView::loadStandardItems()
 	item.emplace_back(&revertAutosave);
 	item.emplace_back(&autosaveNow);
 	item.emplace_back(&stateSlot);
+	item.emplace_back(&rollingSaves);
+	item.emplace_back(&macros);
+	if(Config::envIsAndroid)
+	{
+		item.emplace_back(&videoRecording);
+		item.emplace_back(&instantReplay);
+	}
 	item.emplace_back(&inputOverrides);
 	if(used(addLauncherIcon))
 		item.emplace_back(&addLauncherIcon);

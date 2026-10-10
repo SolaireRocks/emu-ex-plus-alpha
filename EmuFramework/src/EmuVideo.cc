@@ -145,6 +145,10 @@ void EmuVideo::finishFrame(EmuSystemTaskContext taskCtx, Gfx::LockedTextureBuffe
 	{
 		doScreenshot(taskCtx, texBuff.pixmap());
 	}
+	if(app().mediaRecorder.isActive()) [[unlikely]]
+	{
+		app().mediaRecorder.onVideoFrame(texBuff.pixmap());
+	}
 	vidImg.unlock(texBuff);
 	postFrameFinished(taskCtx);
 }
@@ -154,6 +158,10 @@ void EmuVideo::finishFrame(EmuSystemTaskContext taskCtx, PixmapView pix)
 	if(screenshotNextFrame) [[unlikely]]
 	{
 		doScreenshot(taskCtx, pix);
+	}
+	if(app().mediaRecorder.isActive()) [[unlikely]]
+	{
+		app().mediaRecorder.onVideoFrame(pix);
 	}
 	vidImg.write(pix, {.async = true});
 	postFrameFinished(taskCtx);
@@ -171,9 +179,47 @@ void EmuVideo::takeGameScreenshot()
 	screenshotNextFrame = true;
 }
 
+// Nearest-neighbor resize so pixel art stays sharp in high resolution screenshots
+static void scalePixmapNearest(MutablePixmapView dst, PixmapView src)
+{
+	const int bpp = src.format().bytesPerPixel();
+	int prevSrcY = -1;
+	for(int y = 0; y < dst.h(); y++)
+	{
+		int srcY = int((int64_t(y) * src.h()) / dst.h());
+		auto dstRow = dst.data({0, y});
+		if(srcY == prevSrcY)
+		{
+			std::memcpy(dstRow, dst.data({0, y - 1}), dst.w() * bpp);
+			continue;
+		}
+		prevSrcY = srcY;
+		auto srcRow = src.data({0, srcY});
+		for(int x = 0; x < dst.w(); x++)
+		{
+			int srcX = int((int64_t(x) * src.w()) / dst.w());
+			std::memcpy(dstRow + x * bpp, srcRow + srcX * bpp, bpp);
+		}
+	}
+}
+
 void EmuVideo::doScreenshot(EmuSystemTaskContext taskCtx, PixmapView pix)
 {
 	screenshotNextFrame = false;
+	int scale = app().screenshotScale;
+	bool aspectCorrect = app().screenshotAspectCorrect;
+	std::unique_ptr<char[]> scaledBuff;
+	if(scale > 1 || aspectCorrect)
+	{
+		int dstH = pix.h() * scale;
+		int dstW = aspectCorrect ? int(std::round(dstH * 4. / 3.)) : pix.w() * scale;
+		auto desc = pix.desc().makeNewSize({dstW, dstH});
+		scaledBuff = std::make_unique<char[]>(desc.bytes());
+		MutablePixmapView scaledPix{desc, scaledBuff.get()};
+		scalePixmapNearest(scaledPix, pix);
+		pix = scaledPix;
+		log.info("scaled screenshot to:{}x{}", dstW, dstH);
+	}
 	auto success = app().writeScreenshot(pix, app().makeNextScreenshotFilename());
 	if(taskCtx)
 	{

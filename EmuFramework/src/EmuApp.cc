@@ -76,6 +76,7 @@ EmuApp::EmuApp(ApplicationInitParams initParams, ApplicationContext &ctx):
 			[](auto &) {}
 		});
 	};
+	audio.recorder = &mediaRecorder;
 	initOptions(ctx);
 }
 
@@ -141,8 +142,13 @@ static void suspendEmulation(EmuApp &app)
 void EmuApp::closeSystem()
 {
 	systemTask.stop();
+	macroManager.stopRecording(*this, false);
+	macroManager.stop(*this);
+	mediaRecorder.onSystemClosed();
 	showUI();
 	system().closeRuntimeSystem(*this);
+	inputManager.vController.restoreGlobalLayout();
+	rollingSaveManager.cancelTimer();
 	autosaveManager.resetSlot();
 	rewindManager.clear();
 	viewController().onSystemClosed();
@@ -652,6 +658,7 @@ void EmuApp::startEmulation()
 	if(!viewController().isShowingEmulation())
 		return;
 	videoLayer.setBrightnessScale(1.f);
+	mediaRecorder.updateSessionState();
 	frameTimingStats = {};
 	system().start(*this);
 	systemTask.start(emuWindow());
@@ -664,6 +671,9 @@ void EmuApp::showUI(bool updateTopView)
 	if(!viewController().isShowingEmulation())
 		return;
 	pauseEmulation();
+	if(macroManager.isRecording())
+		macroManager.stopRecording(*this);
+	macroManager.stop(*this);
 	configureAppForEmulation(false);
 	videoLayer.setBrightnessScale(menuVideoBrightnessScale);
 	viewController().showMenuView(updateTopView);
@@ -730,6 +740,7 @@ void EmuApp::reloadSystem(EmuSystemCreateParams params)
 
 void EmuApp::onSystemCreated()
 {
+	inputManager.vController.applyPendingGameLayout();
 	updateVideoContentRotation();
 	if(!rewindManager.reset(system().stateSize()))
 	{
@@ -1001,6 +1012,7 @@ void EmuApp::deleteSessionOptions()
 	}
 	resetSessionOptions();
 	system().resetSessionOptionsSet();
+	inputManager.vController.restoreGlobalLayout();
 	appContext().removeFileUri(sessionConfigPath());
 }
 
@@ -1301,10 +1313,13 @@ void EmuApp::record(FrameTimingStatEvent event, SteadyClockTimePoint t)
 
 bool EmuApp::setAltSpeed(AltSpeedMode mode, int16_t speed)
 {
-	if(mode == AltSpeedMode::slow)
-		return slowModeSpeed.set(speed);
-	else
-		return fastModeSpeed.set(speed);
+	switch(mode)
+	{
+		case AltSpeedMode::slow: return slowModeSpeed.set(speed);
+		case AltSpeedMode::fast2: return fastModeSpeed2.set(speed);
+		case AltSpeedMode::fast3: return fastModeSpeed3.set(speed);
+		default: return fastModeSpeed.set(speed);
+	}
 }
 
 void EmuApp::applyCPUAffinity(bool active)

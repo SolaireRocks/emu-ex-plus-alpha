@@ -440,7 +440,21 @@ bool EmuSystemTask::advanceFrames(FrameParams frameParams)
 		shouldWait = setWaitForPresent();
 	}
 	//log.debug("running {} frame(s), skip:{}", frameInfo.advanced, !videoPtr);
-	sys.runFrames({this}, videoPtr, audioPtr, frameInfo.advanced);
+	if(app.macroManager.needsPerFrameUpdates() || app.mediaRecorder.isActive()) [[unlikely]]
+	{
+		// run frames one at a time so macro input timing and recording timestamps are frame-exact
+		for(int i = 0; i < frameInfo.advanced; i++)
+		{
+			bool isLastFrame = i == frameInfo.advanced - 1;
+			app.macroManager.onFrame(app);
+			sys.runFrames({this}, isLastFrame ? videoPtr : nullptr, audioPtr, 1);
+			app.mediaRecorder.endFrame();
+		}
+	}
+	else
+	{
+		sys.runFrames({this}, videoPtr, audioPtr, frameInfo.advanced);
+	}
 	app.inputManager.turboActions.update(app);
 	if(!videoPtr)
 		return false;

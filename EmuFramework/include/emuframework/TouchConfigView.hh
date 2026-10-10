@@ -35,6 +35,7 @@ class TouchConfigView final: public TableView, public EmuAppHelper
 {
 public:
 	TouchConfigView(ViewAttachParams attach, VController &vController);
+	~TouchConfigView();
 	void place() final;
 	void draw(Gfx::RendererCommands&__restrict__, ViewDrawParams p = {}) const final;
 	void reloadItems();
@@ -61,6 +62,9 @@ protected:
 	TextMenuItem resetEmuGroups;
 	TextMenuItem resetUIPositions;
 	TextMenuItem resetUIGroups;
+	BoolMenuItem perGameLayout;
+	BoolMenuItem turboStyle;
+	BoolMenuItem doubleTapScreenshot;
 	TextHeadingMenuItem devButtonsHeading;
 	TextHeadingMenuItem uiButtonsHeading;
 	TextHeadingMenuItem otherHeading;

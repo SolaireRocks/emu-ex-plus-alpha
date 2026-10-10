@@ -25,6 +25,8 @@
 #include <imagine/gfx/Texture.hh>
 #include <imagine/gfx/Quads.hh>
 #include <imagine/gfx/FanQuads.hh>
+#include <imagine/gfx/GfxText.hh>
+#include <imagine/time/Time.hh>
 #include <imagine/util/variant.hh>
 #endif
 #ifndef IG_USE_MODULE_STD
@@ -55,11 +57,18 @@ struct SystemInputDeviceDesc;
 struct InputComponentDesc;
 enum class InputComponent : uint8_t;
 enum class AltSpeedMode;
+enum class AppKeyCode : KeyCode;
 struct WindowData;
 
 enum class VControllerState : uint8_t
 {
 	OFF, SHOWN, HIDDEN
+};
+
+enum class VControllerTurboStyle : uint8_t
+{
+	classic, // only a light color tint
+	outline, // strong tint, colored outline, and a "T" badge
 };
 
 struct VControllerLayoutPosition
@@ -197,6 +206,7 @@ public:
 	bool isFullHeight() const { return aspectRatio == 1; }
 	std::string name(const InputManager &) const;
 	bool overlaps(WPt windowPos) const { return enabled && realBounds().overlaps(windowPos); }
+	float spriteAlpha() const { return spriteColor.a; }
 	void setAlpha(float alpha);
 
 	void setAlpha(float alpha, auto &container)
@@ -233,6 +243,7 @@ public:
 	Gfx::Color color{};
 	KeyInfo key{};
 	uint8_t spriteIdx{};
+	bool distinctTurbo{true};
 	bool enabled{true};
 	bool skipLayout{};
 	bool isHighlighted{};
@@ -294,7 +305,14 @@ public:
 	std::string name(const InputManager &) const;
 	void updateMeasurements(const Window &win);
 	void transposeKeysForPlayer(const InputManager &, int player);
-	void setTask(Gfx::RendererTask &task) { quads = {task, {.size = buttons.size()}}; boundQuads = {task, {.size = 0}}; }
+	void setTask(Gfx::RendererTask &task)
+	{
+		quads = {task, {.size = buttons.size()}};
+		boundQuads = {task, {.size = 0}};
+		haloQuads = {task, {.size = buttons.size()}};
+	}
+	void writeHaloSprites();
+	void drawHalos(Gfx::RendererCommands &__restrict__) const;
 
 	static size_t layoutConfigSize()
 	{
@@ -313,10 +331,13 @@ public:
 	}
 
 	std::vector<VControllerButton> buttons;
+	bool showTurboHalo{true};
 protected:
 	Gfx::ILitTexQuads quads;
 	Gfx::IColQuads boundQuads;
+	Gfx::ILitTexQuads haloQuads;
 	WRect bounds_;
+	int haloCount{};
 	int enabledBtns{};
 	int btnSize{};
 	int spacingPixels{};
@@ -644,6 +665,54 @@ public:
 	WRect layoutBounds() const;
 	void updateSystemKeys(KeyInfo, bool isPushed);
 	void resetHighlightedKeys();
+	void updateAppKeyHighlight(AppKeyCode, bool on);
+	void updateLabels();
+	static std::string buttonLabel(const EmuApp &, KeyInfo, bool inUIGroup);
+
+	// Distinct turbo button styling
+	void setTurboButtonStyle(VControllerTurboStyle);
+	VControllerTurboStyle turboButtonStyle() const { return turboStyle; }
+
+	// Per-game layouts
+	bool usesGameLayout() const { return bool(globalLayoutBackup); }
+	void enableGameLayout();
+	void restoreGlobalLayout();
+	void clearPendingGameLayout() { pendingGameLayout.reset(); }
+	void applyPendingGameLayout();
+	bool readSessionConfig(const InputManager &, MapIO &, unsigned key);
+	void writeSessionConfig(FileIO &) const;
+
+	bool doubleTapScreenshot{true};
+
+private:
+	struct ElementLayout
+	{
+		std::vector<VControllerElement> gpElements;
+		std::vector<VControllerElement> uiElements;
+		int16_t btnSize{};
+	};
+
+	struct ButtonLabel
+	{
+		Gfx::Text text;
+		WRect bounds;
+		uint8_t elemIdx{};
+		bool isUIElem{};
+		bool isCorner{};
+	};
+
+	std::optional<ElementLayout> globalLayoutBackup;
+	std::optional<ElementLayout> pendingGameLayout;
+	std::vector<ButtonLabel> labels;
+	SteadyClockTimePoint lastTapTime{};
+	WPt lastTapPos{};
+	VControllerTurboStyle turboStyle{VControllerTurboStyle::outline};
+
+	void drawLabels(Gfx::RendererCommands &__restrict__, bool showHidden, const VControllerElement *onlyElem = {}) const;
+	std::vector<VControllerElement> cloneElements(const std::vector<VControllerElement> &) const;
+	void writeButtonsConfig(FileIO &, const std::vector<VControllerElement> &, uint16_t key) const;
+	void writeUIButtonsConfig(FileIO &, const std::vector<VControllerElement> &, uint16_t key) const;
+	bool checkDoubleTap(const Input::MotionEvent &, WindowRect gameRect);
 
 private:
 	ApplicationContext appCtx{};

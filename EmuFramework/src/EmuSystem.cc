@@ -267,6 +267,7 @@ void EmuSystem::pause(EmuApp &app)
 	app.audio.stop();
 	app.autosaveManager.pauseTimer();
 	app.rewindManager.pauseTimer();
+	app.rollingSaveManager.pauseTimer();
 	onStop();
 }
 
@@ -287,6 +288,7 @@ void EmuSystem::start(EmuApp &app)
 			app.rewindManager.reset(newStateSize);
 	}
 	app.rewindManager.startTimer();
+	app.rollingSaveManager.startTimer();
 }
 
 SteadyClockDuration EmuSystem::benchmark(EmuVideo& video)

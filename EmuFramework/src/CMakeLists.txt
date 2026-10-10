@@ -23,9 +23,12 @@ target_sources(
 	InputDeviceConfig.cc
 	InputDeviceData.cc
 	KeyConfig.cc
+	MacroManager.cc
+	MediaRecorder.cc
 	OutputTimingManager.cc
 	RecentContent.cc
 	RewindManager.cc
+	RollingSaveManager.cc
 	ToggleInput.cc
 	TurboInput.cc
 	VideoImageEffect.cc
@@ -39,6 +42,7 @@ target_sources(
 	gui/EmuInputView.cc
 	gui/EmuView.cc
 	gui/EmuViewController.cc
+	gui/ExtrasOptionView.cc
 	gui/FilePathOptionView.cc
 	gui/FilePicker.cc
 	gui/FrameTimingView.cc
@@ -46,10 +50,12 @@ target_sources(
 	gui/InputManagerView.cc
 	gui/InputOverridesView.cc
 	gui/LoadProgressView.cc
+	gui/MacroView.cc
 	gui/MainMenuView.cc
 	gui/PlaceVControlsView.cc
 	gui/PlaceVideoView.cc
 	gui/RecentContentView.cc
+	gui/RollingSaveView.cc
 	gui/StateSlotView.cc
 	gui/SystemActionsView.cc
 	gui/SystemOptionView.cc

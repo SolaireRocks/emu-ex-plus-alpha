@@ -48,6 +48,7 @@ public:
 private:
 	VController *vController{};
 	EmuVideoLayer *videoLayer{};
+	AltSpeedMode activeSpeedMode{};
 	bool speedToggleActive{};
 
 	void updateRunSpeed(AltSpeedMode);

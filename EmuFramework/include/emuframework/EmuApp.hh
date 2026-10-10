@@ -26,6 +26,9 @@
 #include <emuframework/AutosaveManager.hh>
 #include <emuframework/RecentContent.hh>
 #include <emuframework/RewindManager.hh>
+#include <emuframework/RollingSaveManager.hh>
+#include <emuframework/MacroManager.hh>
+#include <emuframework/MediaRecorder.hh>
 #include <emuframework/AssetManager.hh>
 #include <emuframework/InputManager.hh>
 #include <emuframework/AppMeta.hh>
@@ -243,7 +246,16 @@ public:
 
 	// System Options
 	bool setAltSpeed(AltSpeedMode mode, int16_t speed);
-	int16_t altSpeed(AltSpeedMode mode) const { return mode == AltSpeedMode::slow ? slowModeSpeed.value() : fastModeSpeed.value(); }
+	int16_t altSpeed(AltSpeedMode mode) const
+	{
+		switch(mode)
+		{
+			case AltSpeedMode::slow: return slowModeSpeed.value();
+			case AltSpeedMode::fast2: return fastModeSpeed2.value();
+			case AltSpeedMode::fast3: return fastModeSpeed3.value();
+			default: return fastModeSpeed.value();
+		}
+	}
 	double altSpeedAsDouble(AltSpeedMode mode) const { return altSpeed(mode) / 100.; }
 	void setCPUAffinity(int cpuNumber, bool on);
 	bool cpuAffinity(int cpuNumber) const;
@@ -322,6 +334,9 @@ public:
 	AutosaveManager autosaveManager{*this};
 	InputManager inputManager;
 	RewindManager rewindManager{*this};
+	RollingSaveManager rollingSaveManager{*this};
+	MacroManager macroManager;
+	MediaRecorder mediaRecorder{*this};
 	AssetManager assetManager;
 	FrameTimingStats frameTimingStats;
 	OutputTimingManager outputTimingManager;
@@ -342,10 +357,23 @@ public:
 	{
 		.defaultValue = 800, .isValid = isValidFastSpeed
 	}> fastModeSpeed;
+	Property<int16_t, CFGKEY_FAST_MODE_SPEED_2,
+	{
+		.defaultValue = 200, .isValid = isValidFastSpeed
+	}> fastModeSpeed2;
+	Property<int16_t, CFGKEY_FAST_MODE_SPEED_3,
+	{
+		.defaultValue = 400, .isValid = isValidFastSpeed
+	}> fastModeSpeed3;
 	Property<int16_t, CFGKEY_SLOW_MODE_SPEED,
 	{
 		.defaultValue = 50, .isValid = isValidSlowSpeed
 	}> slowModeSpeed;
+	Property<int8_t, CFGKEY_SCREENSHOT_SCALE,
+	{
+		.defaultValue = 1, .isValid = isValidWithMinMax<1, 8>
+	}> screenshotScale;
+	Property<bool, CFGKEY_SCREENSHOT_ASPECT> screenshotAspectCorrect;
 	Property<int16_t, CFGKEY_FONT_Y_SIZE,
 	{
 		.defaultValue = Config::MACHINE_IS_PANDORA ? 6500 : (Config::envIsIOS || Config::envIsAndroid) ? 3000 : 8000,

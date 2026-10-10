@@ -49,14 +49,17 @@ void EmuInputView::resetInput()
 
 bool EmuInputView::toggleAltSpeedMode(AltSpeedMode mode)
 {
-	return setAltSpeedMode(mode, speedToggleActive ^ true);
+	return setAltSpeedMode(mode, !(speedToggleActive && activeSpeedMode == mode));
 }
 
 bool EmuInputView::setAltSpeedMode(AltSpeedMode mode, bool on)
 {
-	if(speedToggleActive == on)
+	if(!on && (!speedToggleActive || activeSpeedMode != mode))
+		return speedToggleActive; // releasing a speed that isn't the active one
+	if(on && speedToggleActive && activeSpeedMode == mode)
 		return speedToggleActive;
 	speedToggleActive = on;
+	activeSpeedMode = mode;
 	vController->updateAltSpeedModeInput(mode, on);
 	updateRunSpeed(mode);
 	return speedToggleActive;

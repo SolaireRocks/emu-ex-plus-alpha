@@ -212,12 +212,85 @@ bool InputManager::handleAppActionKeyInput(EmuApp& app, InputAction action, cons
 			viewController.pushAndShowModal(resetAlertView(app.attachParams(), app), srcEvent, false);
 		}
 		break;
+		case fastForwardSpeed2:
+		{
+			viewController.inputView.setAltSpeedMode(AltSpeedMode::fast2, isPushed);
+		}
+		break;
+		case fastForwardSpeed3:
+		{
+			viewController.inputView.setAltSpeedMode(AltSpeedMode::fast3, isPushed);
+		}
+		break;
+		case toggleFastForwardSpeed2:
+		{
+			if(!isPushed)
+				break;
+			viewController.inputView.toggleAltSpeedMode(AltSpeedMode::fast2);
+		}
+		break;
+		case toggleFastForwardSpeed3:
+		{
+			if(!isPushed)
+				break;
+			viewController.inputView.toggleAltSpeedMode(AltSpeedMode::fast3);
+		}
+		break;
+		case saveRollingState:
+		{
+			if(!isPushed)
+				break;
+			if(!app.rollingSaveManager.maxStates())
+			{
+				app.postMessage("Rolling save states are off, enable them in Options ➔ Extras");
+				return true;
+			}
+			app.rollingSaveManager.save(true);
+			return true;
+		}
+		case loadRollingState:
+		{
+			if(!isPushed)
+				break;
+			app.rollingSaveManager.loadNewest();
+			return true;
+		}
+		case toggleVideoRecording:
+		{
+			if(!isPushed)
+				break;
+			app.mediaRecorder.toggleRecording();
+			return true;
+		}
+		case saveInstantReplay:
+		{
+			if(!isPushed)
+				break;
+			app.mediaRecorder.saveReplay();
+			return true;
+		}
+		case toggleMacroRecording:
+		{
+			if(!isPushed)
+				break;
+			app.macroManager.toggleRecording(app);
+			return true;
+		}
+		case playMacro1 ... playMacro8:
+		{
+			if(!isPushed)
+				break;
+			app.macroManager.play(app, macroIndex(AppKeyCode(action.code)));
+			return true;
+		}
 	}
 	return false;
 }
 
 void InputManager::handleSystemKeyInput(EmuApp& app, KeyInfo keyInfo, Input::Action act, uint32_t metaState, SystemKeyInputFlags flags)
 {
+	if(flags.allowTurboModifier && app.macroManager.isRecording())
+		app.macroManager.recordKeyEvent(keyInfo, act == Input::Action::PUSHED);
 	if(flags.allowTurboModifier && turboModifierActive && std::ranges::all_of(keyInfo.codes, AppMeta::allowsTurboModifier))
 		keyInfo.flags.turbo = 1;
 	if(keyInfo.flags.toggle)
@@ -442,6 +515,7 @@ bool InputManager::readSavedInputDevices(MapIO &io)
 
 void InputManager::resetSessionOptions(ApplicationContext ctx)
 {
+	vController.clearPendingGameLayout();
 	for(auto& devPtr: ctx.inputDevices())
 	{
 		inputDevData(*devPtr).devConf.setSavedConf(*this, (InputDeviceSavedSessionConfig*){});
@@ -451,6 +525,8 @@ void InputManager::resetSessionOptions(ApplicationContext ctx)
 
 bool InputManager::readSessionConfig(ApplicationContext ctx, MapIO& io, uint16_t key)
 {
+	if(vController.readSessionConfig(*this, io, key))
+		return true;
 	if(key == CFGKEY_INPUT_DEVICE_CONTENT_CONFIGS)
 	{
 		readInputDeviceSessionConfigs(ctx, io);
@@ -462,6 +538,7 @@ bool InputManager::readSessionConfig(ApplicationContext ctx, MapIO& io, uint16_t
 void InputManager::writeSessionConfig(FileIO& io) const
 {
 	writeInputDeviceSessionConfigs(io);
+	vController.writeSessionConfig(io);
 }
 
 void InputManager::writeInputDeviceSessionConfigs(FileIO &io) const
@@ -632,6 +709,19 @@ const KeyCategory *InputManager::categoryOfKeyCode(KeyInfo key) const
 		if(find(cat.keys, [&](auto &k) { return k.codes == key.codes; }))
 			return &cat;
 	}
+	// user-defined combination of system keys (e.g. A + B), valid if every key belongs to the same category
+	if(key.codes[1])
+	{
+		for(const auto &cat : AppMeta::keyCategories())
+		{
+			bool allKeysFound = std::ranges::all_of(key.codes, [&](KeyCode c)
+			{
+				return !c || find(cat.keys, [&](auto &k) { return k.codes[0] == c && !k.codes[1]; });
+			});
+			if(allKeysFound)
+				return &cat;
+		}
+	}
 	return {};
 }
 
@@ -671,6 +761,23 @@ std::string_view toString(AppKeyCode code)
 		case AppKeyCode::softReset: return "Soft Reset";
 		case AppKeyCode::hardReset: return "Hard Reset";
 		case AppKeyCode::resetMenu: return "Open Reset Menu";
+		case AppKeyCode::fastForwardSpeed2: return "Fast-forward (Speed 2)";
+		case AppKeyCode::fastForwardSpeed3: return "Fast-forward (Speed 3)";
+		case AppKeyCode::toggleFastForwardSpeed2: return "Toggle Fast-forward (Speed 2)";
+		case AppKeyCode::toggleFastForwardSpeed3: return "Toggle Fast-forward (Speed 3)";
+		case AppKeyCode::saveRollingState: return "Save Rolling State";
+		case AppKeyCode::loadRollingState: return "Load Newest Rolling State";
+		case AppKeyCode::toggleVideoRecording: return "Start/Stop Video Recording";
+		case AppKeyCode::saveInstantReplay: return "Save Instant Replay";
+		case AppKeyCode::toggleMacroRecording: return "Start/Stop Macro Recording";
+		case AppKeyCode::playMacro1: return "Play Macro 1";
+		case AppKeyCode::playMacro2: return "Play Macro 2";
+		case AppKeyCode::playMacro3: return "Play Macro 3";
+		case AppKeyCode::playMacro4: return "Play Macro 4";
+		case AppKeyCode::playMacro5: return "Play Macro 5";
+		case AppKeyCode::playMacro6: return "Play Macro 6";
+		case AppKeyCode::playMacro7: return "Play Macro 7";
+		case AppKeyCode::playMacro8: return "Play Macro 8";
 	};
 	return "";
 }

@@ -41,6 +41,8 @@ namespace EmuEx
 
 using namespace IG;
 
+class MediaRecorder;
+
 struct AudioFlags
 {
 	uint8_t
@@ -90,6 +92,7 @@ public:
 	bool readConfig(MapIO &, unsigned key);
 
 	Audio::Manager manager;
+	MediaRecorder *recorder{}; // receives a copy of emulated audio while recording
 protected:
 	Audio::OutputStream audioStream;
 	RingBuffer<uint8_t, RingBufferConf{.mirrored = true}> rBuff;

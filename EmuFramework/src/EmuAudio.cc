@@ -16,6 +16,7 @@
 #include <emuframework/EmuAudio.hh>
 #include <emuframework/EmuSystem.hh>
 #include <emuframework/Option.hh>
+#include <emuframework/MediaRecorder.hh>
 import imagine;
 
 namespace EmuEx
@@ -251,6 +252,8 @@ void EmuAudio::writeFrames(const void *samples, size_t framesToWrite)
 {
 	if(!framesToWrite) [[unlikely]]
 		return;
+	if(recorder && recorder->isActive()) [[unlikely]]
+		recorder->onAudioFrames(samples, framesToWrite, format());
 	assume(rBuff.capacity());
 	auto inputFormat = format();
 	switch(audioWriteState)
