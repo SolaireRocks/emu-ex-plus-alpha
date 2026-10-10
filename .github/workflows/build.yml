@@ -91,17 +91,46 @@ jobs:
         path: imagine-sdk
         key: ${{ steps.bundle-cache.outputs.cache-primary-key }}
     - name: Build imagine and EmuFramework
+      shell: bash
       run: |
-        $IMAGINE_PATH/android.sh config --presets "$ANDROID_ARCHS"
-        $IMAGINE_PATH/android.sh installLinks --config Release --presets "$ANDROID_ARCHS"
-        $EMUFRAMEWORK_PATH/android.sh config --presets "$ANDROID_ARCHS"
-        $EMUFRAMEWORK_PATH/android.sh installLinks --config Release --presets "$ANDROID_ARCHS"
+        set -o pipefail
+        mkdir -p build-logs
+        { $IMAGINE_PATH/android.sh config --presets "$ANDROID_ARCHS" &&
+          $IMAGINE_PATH/android.sh installLinks --config Release --presets "$ANDROID_ARCHS" &&
+          $EMUFRAMEWORK_PATH/android.sh config --presets "$ANDROID_ARCHS" &&
+          $EMUFRAMEWORK_PATH/android.sh installLinks --config Release --presets "$ANDROID_ARCHS"; } 2>&1 | tee build-logs/framework.log
     - name: Build Snes9x EX+
       working-directory: Snes9x
+      shell: bash
       run: |
+        set -o pipefail
         mkdir -p ../EX-Emulators
-        make -f android.mk android-apk CONFIG=Release "android_arch=$ANDROID_ARCHS" V=1 -j`nproc`
+        make -f android.mk android-apk CONFIG=Release "android_arch=$ANDROID_ARCHS" -j`nproc` 2>&1 | tee ../build-logs/snes9x.log
         cp build/android/build/outputs/apk/release/Snes9xEXPlus-release.apk "../EX-Emulators/Snes9xEXPlus-${COMMIT_PREFIX}.apk"
+    - name: Report build errors as annotations
+      if: failure()
+      shell: bash
+      run: |
+        # Job logs require sign-in to read but annotations don't, so surface the important lines there
+        for log in build-logs/*.log
+        do
+          [ -f "$log" ] || continue
+          grep -n -E "error:|Error:|Error [0-9]|FAILED|fatal|CMake Error|No such file|undefined reference|\*\*\*" "$log" | head -n 120 > errs.txt || true
+          if [ ! -s errs.txt ]
+          then
+            tail -n 60 "$log" > errs.txt
+          fi
+          split -l 12 errs.txt errpart-
+          n=0
+          for part in errpart-*
+          do
+            n=$((n+1))
+            [ $n -gt 9 ] && break
+            msg=$(sed -e 's/%/%25/g' "$part" | awk '{printf "%s%%0A", $0}')
+            echo "::error title=$(basename $log) part $n::$msg"
+          done
+          rm -f errpart-* errs.txt
+        done
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
