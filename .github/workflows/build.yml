@@ -45,6 +45,14 @@ jobs:
           echo "$DEBUG_KEYSTORE" | base64 --decode > .debug.keystore
           mkdir -p ~/.android
           mv .debug.keystore ~/.android/debug.keystore
+          # AGP doesn't reliably pick up ~/.android/debug.keystore on the runner, so point the
+          # release signing config in imagine/make/gradle/app/build.gradle at it explicitly
+          {
+            echo "ORG_GRADLE_PROJECT_ANDROID_KEY_STORE=$HOME/.android/debug.keystore"
+            echo "ORG_GRADLE_PROJECT_ANDROID_KEY_STORE_PASSWORD=android"
+            echo "ORG_GRADLE_PROJECT_ANDROID_KEY_ALIAS=androiddebugkey"
+            echo "ORG_GRADLE_PROJECT_ANDROID_KEY_PASSWORD=android"
+          } >> $GITHUB_ENV
         fi
     - name: Install build dependencies
       run: |
@@ -109,6 +117,11 @@ jobs:
         mkdir -p ../EX-Emulators
         make -f android.mk android-apk CONFIG=Release "android_arch=$ANDROID_ARCHS" -j`nproc` 2>&1 | tee ../build-logs/snes9x.log
         cp build/android/build/outputs/apk/release/Snes9xEXPlus-release.apk "../EX-Emulators/Snes9xEXPlus-${COMMIT_PREFIX}.apk"
+    - name: Report APK signing certificate
+      shell: bash
+      run: |
+        fp=$(keytool -printcert -jarfile "EX-Emulators/Snes9xEXPlus-${COMMIT_PREFIX}.apk" | grep -m1 "SHA256:" | sed 's/.*SHA256: *//')
+        echo "::notice title=APK signing cert SHA-256::$fp"
     - name: Report build errors as annotations
       if: failure()
       shell: bash
