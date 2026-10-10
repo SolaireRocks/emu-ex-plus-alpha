@@ -55,6 +55,49 @@ int VController::yMMSizeToPixel(const Window &win, float mm) const
 	return win.heightMMInPixels(mm);
 }
 
+static std::optional<AltSpeedMode> altSpeedModeOfKey(KeyInfo k)
+{
+	if(!k.isAppKey())
+		return {};
+	using enum AppKeyCode;
+	switch(AppKeyCode(k.codes[0]))
+	{
+		case fastForward:
+		case toggleFastForward: return AltSpeedMode::fast;
+		case slowMotion:
+		case toggleSlowMotion: return AltSpeedMode::slow;
+		case fastForwardSpeed2:
+		case toggleFastForwardSpeed2: return AltSpeedMode::fast2;
+		case fastForwardSpeed3:
+		case toggleFastForwardSpeed3: return AltSpeedMode::fast3;
+		default: return {};
+	}
+}
+
+// When a UI group has several fast-forward speed buttons, the arrows grow with the speed instead of showing numbers
+static void setFastForwardImageScales(const EmuApp &app, VControllerUIButtonGroup &grp)
+{
+	std::vector<int> speeds;
+	for(auto &btn : grp.buttons)
+	{
+		btn.imageScale = 1.f;
+		if(auto mode = altSpeedModeOfKey(btn.key); mode && *mode != AltSpeedMode::slow && !std::ranges::contains(speeds, app.altSpeed(*mode)))
+			speeds.emplace_back(app.altSpeed(*mode));
+	}
+	if(speeds.size() < 2)
+		return;
+	std::ranges::sort(speeds);
+	constexpr float minScale = .6f;
+	for(auto &btn : grp.buttons)
+	{
+		auto mode = altSpeedModeOfKey(btn.key);
+		if(!mode || *mode == AltSpeedMode::slow)
+			continue;
+		auto rank = std::ranges::find(speeds, app.altSpeed(*mode)) - speeds.begin();
+		btn.imageScale = minScale + (1.f - minScale) * float(rank) / float(speeds.size() - 1);
+	}
+}
+
 static void updateTexture(const EmuApp &app, VControllerElement &e, Gfx::RendererTask &task, const Gfx::IndexBuffer<uint8_t> &fanQuadIdxs)
 {
 	e.visit(overloaded
@@ -64,8 +107,9 @@ static void updateTexture(const EmuApp &app, VControllerElement &e, Gfx::Rendere
 		{
 			for(auto &btn : grp.buttons)
 			{
-				// app actions placed in a gamepad group use a blank button with a text label
-				auto desc = AppMeta::vControllerAssetDesc(btn.key.isAppKey() ? KeyInfo{KeyCode(254)} : btn.key);
+				// app actions and combos placed in a gamepad group use a blank button with a text label
+				bool useBlank = btn.key.isAppKey() || btn.key.codes[1];
+				auto desc = AppMeta::vControllerAssetDesc(useBlank ? KeyInfo{KeyCode(254)} : btn.key);
 				btn.setImage(app.asset(desc), desc.aspectRatio.y);
 			}
 			grp.setTask(task);
@@ -112,6 +156,7 @@ static void updateTexture(const EmuApp &app, VControllerElement &e, Gfx::Rendere
 					return app.asset(AssetID::more);
 				}());
 			}
+			setFastForwardImageScales(app, grp);
 			grp.setTask(task);
 		}
 	});
@@ -174,25 +219,6 @@ void VController::resetInput()
 	dragTracker.reset();
 }
 
-static std::optional<AltSpeedMode> altSpeedModeOfKey(KeyInfo k)
-{
-	if(!k.isAppKey())
-		return {};
-	using enum AppKeyCode;
-	switch(AppKeyCode(k.codes[0]))
-	{
-		case fastForward:
-		case toggleFastForward: return AltSpeedMode::fast;
-		case slowMotion:
-		case toggleSlowMotion: return AltSpeedMode::slow;
-		case fastForwardSpeed2:
-		case toggleFastForwardSpeed2: return AltSpeedMode::fast2;
-		case fastForwardSpeed3:
-		case toggleFastForwardSpeed3: return AltSpeedMode::fast3;
-		default: return {};
-	}
-}
-
 void VController::updateAltSpeedModeInput(AltSpeedMode mode, bool on)
 {
 	auto updateElems = [&](std::vector<VControllerElement> &elems)
@@ -244,6 +270,8 @@ void VController::place()
 	}
 	for(auto &elem : uiElements)
 	{
+		if(auto grp = elem.uiButtonGroup(); grp)
+			setFastForwardImageScales(app(), *grp); // speeds may have changed
 		elem.place(bounds, windowBounds, isPortrait);
 	}
 	dragTracker.setDragStartPixels(win.widthMMInPixels(1.));
@@ -1271,7 +1299,7 @@ static std::string comboLabel(KeyInfo k)
 	return s;
 }
 
-std::string VController::buttonLabel(const EmuApp &app, KeyInfo k, bool inUIGroup)
+std::string VController::buttonLabel(const EmuApp &app, KeyInfo k, bool inUIGroup, bool inCaptureGroup)
 {
 	if(!k.isAppKey())
 		return k.codes[1] ? comboLabel(k) : std::string{};
@@ -1282,18 +1310,20 @@ std::string VController::buttonLabel(const EmuApp &app, KeyInfo k, bool inUIGrou
 		return std::format("M{}", idx + 1);
 	switch(code)
 	{
+		// in UI groups, fast-forward speeds are shown by the arrow size instead
 		case fastForward:
-		case toggleFastForward: return speedStr(AltSpeedMode::fast);
+		case toggleFastForward: return inUIGroup ? std::string{} : speedStr(AltSpeedMode::fast);
 		case fastForwardSpeed2:
-		case toggleFastForwardSpeed2: return speedStr(AltSpeedMode::fast2);
+		case toggleFastForwardSpeed2: return inUIGroup ? std::string{} : speedStr(AltSpeedMode::fast2);
 		case fastForwardSpeed3:
-		case toggleFastForwardSpeed3: return speedStr(AltSpeedMode::fast3);
+		case toggleFastForwardSpeed3: return inUIGroup ? std::string{} : speedStr(AltSpeedMode::fast3);
 		case slowMotion:
 		case toggleSlowMotion: return speedStr(AltSpeedMode::slow);
-		case saveRollingState: return inUIGroup ? "R" : "R-Save";
-		case loadRollingState: return inUIGroup ? "R" : "R-Load";
-		case toggleVideoRecording: return "REC";
-		case saveInstantReplay: return "CLIP";
+		case saveRollingState: return inUIGroup ? std::string{} : "R-Save";
+		case loadRollingState: return inUIGroup ? std::string{} : "R-Load";
+		// the screenshot/replay/record group is identified by its icons, single buttons keep their text
+		case toggleVideoRecording: return inCaptureGroup ? std::string{} : "REC";
+		case saveInstantReplay: return inCaptureGroup ? std::string{} : "CLIP";
 		case toggleMacroRecording: return "M-REC";
 		default: break;
 	}
@@ -1331,20 +1361,23 @@ void VController::updateLabels()
 	{
 		for(size_t idx = 0; idx < elems.size() && idx < 255; idx++)
 		{
-			for(auto &b : elems[idx].buttons())
+			auto btns = elems[idx].buttons();
+			auto hasKey = [&](AppKeyCode c)
+			{
+				return std::ranges::any_of(btns, [&](auto &b){ return b.key.isAppKey() && AppKeyCode(b.key.codes[0]) == c; });
+			};
+			bool isCaptureGroup = isUI && hasKey(AppKeyCode::takeScreenshot)
+				&& hasKey(AppKeyCode::saveInstantReplay) && hasKey(AppKeyCode::toggleVideoRecording);
+			for(auto &b : btns)
 			{
 				if(!b.enabled)
 					continue;
-				auto addLabel = [&](std::string_view str, bool isCorner)
+				if(auto str = buttonLabel(app(), b.key, isUI, isCaptureGroup); str.size())
 				{
-					auto &l = labels.emplace_back(Gfx::Text{task, str, face}, b.bounds(), uint8_t(idx), isUI, isCorner);
+					auto &l = labels.emplace_back(Gfx::Text{task, str, face}, b.bounds(), uint8_t(idx), isUI);
 					l.text.makeGlyphs();
 					l.text.compile();
-				};
-				if(auto str = buttonLabel(app(), b.key, isUI); str.size())
-					addLabel(str, false);
-				if(!isUI && turboStyle == VControllerTurboStyle::outline && !b.key.isAppKey() && b.key.flags.turbo)
-					addLabel("T", true);
+				}
 			}
 		}
 	};
@@ -1357,7 +1390,9 @@ void VController::drawLabels(Gfx::RendererCommands &__restrict__ cmds, bool show
 	if(labels.empty())
 		return;
 	bool gamepadVisible = !isInKeyboardMode() && (gamepadIsVisible || showHidden);
-	float a = std::min(1.f, alphaF * 1.8f);
+	// same dimming as the letters printed on the standard button images
+	constexpr float brightness = .62f;
+	Gfx::Color labelColor{brightness, brightness, brightness, alphaF};
 	bool drewLabel{};
 	for(const auto &l : labels)
 	{
@@ -1376,12 +1411,10 @@ void VController::drawLabels(Gfx::RendererCommands &__restrict__ cmds, bool show
 			cmds.basicEffect().enableAlphaTexture(cmds);
 			drewLabel = true;
 		}
-		if(l.isCorner)
-			l.text.draw(cmds, l.bounds.pos(RT2DO), RT2DO, Gfx::Color{1.f, .85f, .2f, a});
-		else if(l.isUIElem)
-			l.text.draw(cmds, l.bounds.pos(CB2DO), CB2DO, Gfx::Color{1.f, 1.f, 1.f, a});
+		if(l.isUIElem)
+			l.text.draw(cmds, l.bounds.pos(CB2DO), CB2DO, labelColor);
 		else
-			l.text.draw(cmds, l.bounds.pos(C2DO), C2DO, Gfx::Color{1.f, 1.f, 1.f, a});
+			l.text.draw(cmds, l.bounds.pos(C2DO), C2DO, labelColor);
 	}
 	if(drewLabel)
 	{

@@ -38,7 +38,14 @@ using namespace IG;
 
 class EmuApp;
 
-// Automatically saves states to a fixed number of files on a timer, overwriting the oldest one each time
+// Saves states to a fixed number of files, overwriting the oldest one each time.
+// Manual saves (button or menu) and timer auto saves use separate sets of files,
+// so an auto save never overwrites a manual one.
+enum class RollingSaveKind : uint8_t
+{
+	manual, autoSave
+};
+
 class RollingSaveManager
 {
 public:
@@ -47,6 +54,7 @@ public:
 		FS::PathString path;
 		WallClockTimePoint time;
 		int index{};
+		RollingSaveKind kind{};
 	};
 
 	static constexpr int maxStatesLimit = 50;
@@ -54,10 +62,10 @@ public:
 	static constexpr uint8_t defaultMaxStates = 5;
 
 	RollingSaveManager(EmuApp &);
-	bool save(bool notify = false, bool resetTimer = true);
+	bool save(RollingSaveKind, bool notify = false);
 	bool loadNewest();
 	bool load(const Entry &);
-	std::vector<Entry> entries() const; // existing states, newest first
+	std::vector<Entry> entries() const; // existing states of both kinds, newest first
 	void startTimer();
 	void pauseTimer();
 	void cancelTimer();
@@ -65,6 +73,8 @@ public:
 	int maxStates() const { return maxStates_; }
 	void setInterval(Seconds);
 	Seconds interval() const { return saveTimer.frequency; }
+	void setAutoSave(bool);
+	bool autoSave() const { return autoSave_; }
 	bool readConfig(MapIO &, unsigned key);
 	void writeConfig(FileIO &) const;
 
@@ -72,8 +82,10 @@ private:
 	EmuApp &app;
 	PausableTimer<Seconds> saveTimer;
 	uint8_t maxStates_{defaultMaxStates};
+	bool autoSave_{true};
 
-	FS::PathString statePath(int idx) const;
+	FS::PathString statePath(RollingSaveKind, int idx) const;
+	void restartTimer();
 };
 
 }

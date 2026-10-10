@@ -32,7 +32,7 @@ RollingSaveView::RollingSaveView(ViewAttachParams attach):
 				app().postMessage("Rolling save states are off, enable them in Options ➔ Extras");
 				return;
 			}
-			if(app().rollingSaveManager.save(true))
+			if(app().rollingSaveManager.save(RollingSaveKind::manual, true))
 			{
 				reloadItems();
 				place();
@@ -64,7 +64,7 @@ void RollingSaveView::reloadItems()
 	{
 		auto &e = entries[i];
 		auto &menuItem = entryItems.emplace_back(
-			std::format("State {} - {}", e.index + 1, ctx.formatDateAndTime(e.time)), attachParams(),
+			std::format("{} {} - {}", e.kind == RollingSaveKind::autoSave ? "Auto" : "Manual", e.index + 1, ctx.formatDateAndTime(e.time)), attachParams(),
 			[this](TextMenuItem &item, const Input::Event &ev)
 			{
 				auto idx = size_t(item.id.val);

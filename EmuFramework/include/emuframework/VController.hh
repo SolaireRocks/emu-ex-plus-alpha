@@ -30,6 +30,7 @@
 #include <imagine/util/variant.hh>
 #endif
 #ifndef IG_USE_MODULE_STD
+#include <algorithm>
 #include <vector>
 #include <span>
 #include <optional>
@@ -68,7 +69,7 @@ enum class VControllerState : uint8_t
 enum class VControllerTurboStyle : uint8_t
 {
 	classic, // only a light color tint
-	outline, // strong tint, colored outline, and a "T" badge
+	outline, // strong tint and a colored outline
 };
 
 struct VControllerLayoutPosition
@@ -221,9 +222,18 @@ public:
 		setAlpha(alpha, container);
 	}
 
+	// bounds of the drawn image, shrunk around the center when imageScale < 1
+	WRect imageBounds() const
+	{
+		if(imageScale >= 1.f)
+			return bounds_;
+		WSize size{std::max(int(bounds_.xSize() * imageScale), 1), std::max(int(bounds_.ySize() * imageScale), 1)};
+		return makeWindowRectRel(bounds_.pos(C2DO) - size / 2, size);
+	}
+
 	void updateSprite(auto &quads)
 	{
-		Gfx::ILitTexQuad({.bounds = bounds_.as<int16_t>(), .color = spriteColor, .textureSpan = texture}).write(quads, spriteIdx);
+		Gfx::ILitTexQuad({.bounds = imageBounds().as<int16_t>(), .color = spriteColor, .textureSpan = texture}).write(quads, spriteIdx);
 	}
 
 	void updateSprite(auto &quads, auto &boundQuads)
@@ -243,6 +253,7 @@ public:
 	Gfx::Color color{};
 	KeyInfo key{};
 	uint8_t spriteIdx{};
+	float imageScale{1.f};
 	bool distinctTurbo{true};
 	bool enabled{true};
 	bool skipLayout{};
@@ -667,7 +678,7 @@ public:
 	void resetHighlightedKeys();
 	void updateAppKeyHighlight(AppKeyCode, bool on);
 	void updateLabels();
-	static std::string buttonLabel(const EmuApp &, KeyInfo, bool inUIGroup);
+	static std::string buttonLabel(const EmuApp &, KeyInfo, bool inUIGroup, bool inCaptureGroup = false);
 
 	// Distinct turbo button styling
 	void setTurboButtonStyle(VControllerTurboStyle);
@@ -698,7 +709,6 @@ private:
 		WRect bounds;
 		uint8_t elemIdx{};
 		bool isUIElem{};
-		bool isCorner{};
 	};
 
 	std::optional<ElementLayout> globalLayoutBackup;

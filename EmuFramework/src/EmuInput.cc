@@ -245,7 +245,7 @@ bool InputManager::handleAppActionKeyInput(EmuApp& app, InputAction action, cons
 				app.postMessage("Rolling save states are off, enable them in Options ➔ Extras");
 				return true;
 			}
-			app.rollingSaveManager.save(true);
+			app.rollingSaveManager.save(RollingSaveKind::manual, true);
 			return true;
 		}
 		case loadRollingState:

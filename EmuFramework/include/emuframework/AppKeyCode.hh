@@ -162,8 +162,8 @@ inline constexpr InputComponentDesc rightUIComponents{"Open Menu", rightUIKeys, 
 inline constexpr InputComponentDesc leftUIComponents{"Fast-forward/Rewind", leftUIKeys, InputComponent::ui, LT2DO};
 
 // Extra button groups from the custom build
-inline constexpr std::array speedButtonKeys{appKeys.fastForwardSpeed2, appKeys.fastForwardSpeed3, appKeys.fastForward};
-inline constexpr std::array speedToggleButtonKeys{appKeys.toggleFastForwardSpeed2, appKeys.toggleFastForwardSpeed3, appKeys.toggleFastForward};
+inline constexpr std::array speedButtonKeys{appKeys.fastForward, appKeys.fastForwardSpeed2, appKeys.fastForwardSpeed3};
+inline constexpr std::array speedToggleButtonKeys{appKeys.toggleFastForward, appKeys.toggleFastForwardSpeed2, appKeys.toggleFastForwardSpeed3};
 inline constexpr std::array macroButtonKeys{appKeys.playMacro1, appKeys.playMacro2, appKeys.playMacro3, appKeys.playMacro4};
 inline constexpr std::array captureButtonKeys{appKeys.takeScreenshot, appKeys.saveInstantReplay, appKeys.toggleVideoRecording};
 inline constexpr std::array rollingSaveButtonKeys{appKeys.saveRollingState, appKeys.loadRollingState};

@@ -34,20 +34,20 @@ RollingSaveManager::RollingSaveManager(EmuApp &app_):
 		[this]
 		{
 			log.debug("running rolling save state timer");
-			save(false, false);
+			save(RollingSaveKind::autoSave);
 			saveTimer.update();
 			return true;
 		}
 	} {}
 
-FS::PathString RollingSaveManager::statePath(int idx) const
+FS::PathString RollingSaveManager::statePath(RollingSaveKind kind, int idx) const
 {
 	auto &sys = app.system();
-	auto name = std::format("{}.rolling{:02}", sys.contentName(), idx);
+	auto name = std::format("{}.{}{:02}", sys.contentName(), kind == RollingSaveKind::autoSave ? "autorolling" : "rolling", idx);
 	return sys.statePath(sys.stateFilename(name));
 }
 
-bool RollingSaveManager::save(bool notify, bool resetTimer)
+bool RollingSaveManager::save(RollingSaveKind kind, bool notify)
 {
 	auto &sys = app.system();
 	if(!maxStates_ || !sys.hasContent())
@@ -58,7 +58,7 @@ bool RollingSaveManager::save(bool notify, bool resetTimer)
 	WallClockTimePoint oldestTime{WallClockTimePoint::max()};
 	for(auto i: iotaCount(int(maxStates_)))
 	{
-		auto path = statePath(i);
+		auto path = statePath(kind, i);
 		if(!ctx.fileUriExists(path))
 		{
 			slotToUse = i;
@@ -71,16 +71,11 @@ bool RollingSaveManager::save(bool notify, bool resetTimer)
 			slotToUse = i;
 		}
 	}
-	log.info("saving rolling state to slot:{}", slotToUse);
-	bool success = app.saveState(statePath(slotToUse), false);
+	bool isAuto = kind == RollingSaveKind::autoSave;
+	log.info("saving {} rolling state to slot:{}", isAuto ? "auto" : "manual", slotToUse);
+	bool success = app.saveState(statePath(kind, slotToUse), false);
 	if(success && notify)
-		app.postMessage(1, false, std::format("Saved Rolling State {}", slotToUse + 1));
-	if(resetTimer)
-	{
-		saveTimer.cancel();
-		if(sys.isActive())
-			saveTimer.start();
-	}
+		app.postMessage(1, false, std::format("Saved {} Rolling State {}", isAuto ? "Auto" : "Manual", slotToUse + 1));
 	return success;
 }
 
@@ -90,12 +85,15 @@ std::vector<RollingSaveManager::Entry> RollingSaveManager::entries() const
 	if(!app.system().hasContent())
 		return list;
 	auto ctx = app.appContext();
-	for(auto i: iotaCount(int(maxStatesLimit)))
+	for(auto kind : {RollingSaveKind::manual, RollingSaveKind::autoSave})
 	{
-		auto path = statePath(i);
-		if(!ctx.fileUriExists(path))
-			continue;
-		list.emplace_back(path, ctx.fileUriLastWriteTime(path), i);
+		for(auto i: iotaCount(int(maxStatesLimit)))
+		{
+			auto path = statePath(kind, i);
+			if(!ctx.fileUriExists(path))
+				continue;
+			list.emplace_back(path, ctx.fileUriLastWriteTime(path), i, kind);
+		}
 	}
 	std::ranges::sort(list, [](auto &a, auto &b){ return a.time > b.time; });
 	return list;
@@ -105,10 +103,15 @@ bool RollingSaveManager::load(const Entry &e)
 {
 	if(!app.loadState(e.path))
 		return false;
+	restartTimer();
+	return true;
+}
+
+void RollingSaveManager::restartTimer()
+{
 	saveTimer.cancel();
 	if(app.system().isActive())
-		saveTimer.start();
-	return true;
+		startTimer();
 }
 
 bool RollingSaveManager::loadNewest()
@@ -121,13 +124,14 @@ bool RollingSaveManager::loadNewest()
 	}
 	if(!load(list.front()))
 		return false;
-	app.postMessage(1, false, std::format("Loaded Rolling State {}", list.front().index + 1));
+	auto &e = list.front();
+	app.postMessage(1, false, std::format("Loaded {} Rolling State {}", e.kind == RollingSaveKind::autoSave ? "Auto" : "Manual", e.index + 1));
 	return true;
 }
 
 void RollingSaveManager::startTimer()
 {
-	if(!maxStates_)
+	if(!maxStates_ || !autoSave_)
 		return;
 	saveTimer.start();
 }
@@ -149,6 +153,15 @@ void RollingSaveManager::setMaxStates(int max)
 		saveTimer.cancel();
 }
 
+void RollingSaveManager::setAutoSave(bool on)
+{
+	autoSave_ = on;
+	if(!on)
+		saveTimer.cancel();
+	else if(app.system().hasContent())
+		restartTimer();
+}
+
 void RollingSaveManager::setInterval(Seconds secs)
 {
 	saveTimer.frequency = std::clamp(secs, Seconds{10}, Seconds{3600});
@@ -161,12 +174,14 @@ bool RollingSaveManager::readConfig(MapIO &io, unsigned key)
 		default: return false;
 		case CFGKEY_ROLLING_SAVE_STATES: return readOptionValue<uint8_t>(io, [&](auto v){ setMaxStates(v); });
 		case CFGKEY_ROLLING_SAVE_INTERVAL_SECS: return readOptionValue<int16_t>(io, [&](auto s){ setInterval(Seconds{s}); });
+		case CFGKEY_ROLLING_SAVE_AUTO: return readOptionValue(io, autoSave_);
 	}
 }
 
 void RollingSaveManager::writeConfig(FileIO &io) const
 {
 	writeOptionValueIfNotDefault(io, CFGKEY_ROLLING_SAVE_STATES, maxStates_, defaultMaxStates);
+	writeOptionValueIfNotDefault(io, CFGKEY_ROLLING_SAVE_AUTO, autoSave_, true);
 	writeOptionValueIfNotDefault(io, CFGKEY_ROLLING_SAVE_INTERVAL_SECS, int16_t(saveTimer.frequency.count()), int16_t(defaultInterval.count()));
 }
 

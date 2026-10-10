@@ -53,6 +53,7 @@ protected:
 	TextHeadingMenuItem rollingHeading;
 	TextMenuItem rollingStatesItems[6];
 	MultiChoiceMenuItem rollingStates;
+	BoolMenuItem rollingAutoSave;
 	TextMenuItem rollingIntervalItems[6];
 	MultiChoiceMenuItem rollingInterval;
 	TextHeadingMenuItem screenshotHeading;

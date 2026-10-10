@@ -29,6 +29,8 @@ There is no local toolchain on the Windows dev machine. Builds run only in GitHu
 - `EmuFramework/src/vcontrols/VController.cc` – touch handling, drawing, config read/write, button labels,
   double-tap screenshot, per-game layouts.
 - `VControllerButtonGroup.cc` / `VControllerButton.cc` – button layout, sprite colors, turbo outline ("halo") quads.
+- Button labels (`VController::buttonLabel`/`drawLabels`) use the same dim gray as the letters in the button art.
+  UI-group fast-forward buttons have no number; `setFastForwardImageScales` sizes the arrow by speed (`VControllerButton::imageScale`).
 - `EmuFramework/src/gui/TouchConfigView.cc` – "On-screen Input Setup" menu.
 - `KeyInfo` (inputDefs.hh) holds up to 3 key codes plus flags (appCode, turbo, toggle, deviceId).
   Combo buttons are KeyInfos with several system codes. App actions (`AppKeyCode`) are allowed in gamepad groups.
@@ -39,9 +41,9 @@ There is no local toolchain on the Windows dev machine. Builds run only in GitHu
 |---|---|
 | Multiple fast-forward speeds | `AppKeyCode.hh` (fastForwardSpeed2/3 + toggles), `AltSpeedMode::fast2/fast3` in `defs.hh`, `EmuInputView.cc`, `EmuApp.hh` (`fastModeSpeed2/3`) |
 | Combo buttons (A+B) | `InputManager::categoryOfKeyCode` (validation), TouchConfigView "Add Combo Button" / "Add Key To Combo" |
-| Distinct turbo buttons | `VControllerTurboStyle`, `VControllerButtonGroup::writeHaloSprites`, `VControllerButton::setAlpha`, "T" badge in `VController::updateLabels` |
+| Distinct turbo buttons | `VControllerTurboStyle`, `VControllerButtonGroup::writeHaloSprites`, `VControllerButton::setAlpha` (Outline/Classic option) |
 | Macros | `MacroManager.{hh,cc}`, `gui/MacroView.cc`, frame hook in `EmuSystemTask::advanceFrames` |
-| Rolling save states | `RollingSaveManager.{hh,cc}`, `gui/RollingSaveView.cc`, timer start/pause in `EmuSystem.cc` |
+| Rolling save states | `RollingSaveManager.{hh,cc}` (separate manual/auto file sets via `RollingSaveKind`), `gui/RollingSaveView.cc`, timer start/pause in `EmuSystem.cc` |
 | Per-game touch layouts | `VController::{enable,restoreGlobal,applyPending}GameLayout`, session config keys 203/204 |
 | Double-tap screenshot | `VController::checkDoubleTap` |
 | High-res screenshots | `EmuVideo::doScreenshot` (nearest-neighbor scale, optional 4:3) |

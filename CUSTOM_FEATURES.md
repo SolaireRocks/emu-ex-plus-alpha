@@ -11,8 +11,9 @@ controller under *Key/Gamepad Input Setup*, in the "In-Emulation Actions" catego
 
 *Options menu ➔ On-screen Input Setup ➔ Add New Button Group* now offers:
 
-- **Fast-forward Speeds (Hold)** / **(Toggle)**: three speed buttons labeled with their speeds (default 2x, 4x, 8x).
+- **Fast-forward Speeds (Hold)** / **(Toggle)**: three speed buttons, slowest to fastest. The arrows get bigger with each faster speed (default 2x, 4x, 8x).
 - **Screenshot/Instant Replay/Record**: screenshot, save the last N seconds (CLIP), and start/stop recording (REC).
+  In this group the buttons show only their icons. A CLIP or REC button added on its own keeps its text label.
 - **Rolling Save/Load**: save a rolling state now, or load the newest one.
 - **Macro Buttons 1-4**: gamepad-style buttons labeled M1–M4.
 - **Fast-forward Speed Buttons**: the same speeds as large gamepad-style buttons.
@@ -24,7 +25,7 @@ Any app action (fast-forward speeds, macros, save/load, etc.) can also go into a
 
 - *Edit a gamepad button group ➔ Add Combo Button (e.g. A + B)*: pick the first key, then the second.
 - Or edit any existing button and use *Add Key To Combo* (up to 3 keys, e.g. A+B+X).
-- Combo buttons show their keys as a label (e.g. "A+B") and can also be Turbo or Toggle.
+- Combo buttons are drawn as a blank button with their keys as a label (e.g. "A+B") and can also be Turbo or Toggle.
 
 ## Multiple fast-forward speeds
 
@@ -33,7 +34,7 @@ An active speed button turns red.
 
 ## Turbo buttons
 
-Turbo buttons now get a bright orange outline, a stronger tint, and a small "T" badge.
+Turbo buttons now get a bright orange outline and a stronger tint (*Turbo Button Style ➔ Outline*).
 Switch back with *Options ➔ Extras ➔ Turbo Button Style ➔ Classic*.
 
 ## Per-game control layouts
@@ -44,9 +45,14 @@ Turning it off returns to the shared layout. *System Actions ➔ Reset Saved Opt
 
 ## Rolling save states
 
-Turned on by default: every 3 minutes of play, a state is saved, keeping the newest 5 and overwriting the oldest.
-Change the count and interval in *Options ➔ Extras*. Load them from *System Actions ➔ Rolling Save States*,
-or with the "Load Newest Rolling State" button. Files are saved next to your normal states as `<game>.rollingNN`.
+Turned on by default: every 3 minutes of play, a state is auto saved, keeping the newest 5 and overwriting the oldest.
+Turn the timer off with *Options ➔ Extras ➔ Auto Save On A Timer*, and change the count and interval there too.
+
+Manual rolling saves (the save button, or *Save Rolling State Now*) are kept separately from the auto saves,
+so an auto save never overwrites one you made yourself. Each set keeps its own newest 5 (or your chosen count).
+Load them from *System Actions ➔ Rolling Save States* (listed as "Manual N" / "Auto N", newest first),
+or with the "Load Newest Rolling State" button, which loads the newest of either kind.
+Files are saved next to your normal states as `<game>.rollingNN` (manual) and `<game>.autorollingNN` (auto).
 
 ## Screenshots
 

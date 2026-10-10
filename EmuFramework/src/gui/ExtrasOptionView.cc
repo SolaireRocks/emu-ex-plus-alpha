@@ -115,6 +115,12 @@ ExtrasOptionView::ExtrasOptionView(ViewAttachParams attach):
 			.defaultItemOnSelect = [this](TextMenuItem &item) { app().rollingSaveManager.setMaxStates(item.id); }
 		},
 	},
+	rollingAutoSave
+	{
+		"Auto Save On A Timer", attach,
+		app().rollingSaveManager.autoSave(),
+		[this](BoolMenuItem &item) { app().rollingSaveManager.setAutoSave(item.flipBoolValue(*this)); }
+	},
 	rollingIntervalItems
 	{
 		{"30s",  attach, {.id = 30}},
@@ -139,7 +145,7 @@ ExtrasOptionView::ExtrasOptionView(ViewAttachParams attach):
 	},
 	rollingInterval
 	{
-		"Save Every", attach,
+		"Auto Save Every", attach,
 		MenuId{int(app().rollingSaveManager.interval().count())},
 		rollingIntervalItems,
 		{
@@ -237,7 +243,7 @@ ExtrasOptionView::ExtrasOptionView(ViewAttachParams attach):
 	{
 		"Turbo Button Style", attach,
 		app().defaultVController().turboButtonStyle() == VControllerTurboStyle::outline,
-		"Classic", "Outline + Badge",
+		"Classic", "Outline",
 		[this](BoolMenuItem &item)
 		{
 			app().defaultVController().setTurboButtonStyle(item.flipBoolValue(*this) ? VControllerTurboStyle::outline : VControllerTurboStyle::classic);
@@ -250,6 +256,7 @@ ExtrasOptionView::ExtrasOptionView(ViewAttachParams attach):
 	item.emplace_back(&fastSpeed3.choice);
 	item.emplace_back(&rollingHeading);
 	item.emplace_back(&rollingStates);
+	item.emplace_back(&rollingAutoSave);
 	item.emplace_back(&rollingInterval);
 	item.emplace_back(&screenshotHeading);
 	item.emplace_back(&screenshotScale);

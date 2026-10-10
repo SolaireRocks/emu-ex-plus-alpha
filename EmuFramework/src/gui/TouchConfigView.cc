@@ -1132,7 +1132,7 @@ TouchConfigView::TouchConfigView(ViewAttachParams attach, VController &vCtrl):
 	{
 		"Turbo Button Style", attach,
 		vCtrl.turboButtonStyle() == VControllerTurboStyle::outline,
-		"Classic", "Outline + Badge",
+		"Classic", "Outline",
 		[this](BoolMenuItem &item)
 		{
 			vController.setTurboButtonStyle(item.flipBoolValue(*this) ? VControllerTurboStyle::outline : VControllerTurboStyle::classic);
