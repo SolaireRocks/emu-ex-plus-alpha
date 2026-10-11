@@ -60,6 +60,7 @@ protected:
 	TextMenuItem btnPlace;
 	TextMenuItem placeVideo;
 	TextMenuItem addButton;
+	TextMenuItem addSingleButton;
 	ConditionalMember<Config::DISPLAY_CUTOUT, BoolMenuItem> allowButtonsPastContentBounds;
 	TextMenuItem resetEmuPositions;
 	TextMenuItem resetEmuGroups;

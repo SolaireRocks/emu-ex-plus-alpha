@@ -1328,7 +1328,7 @@ static std::string comboLabel(KeyInfo k)
 	return s;
 }
 
-std::string VController::buttonLabel(const EmuApp &app, KeyInfo k, bool inUIGroup, bool inCaptureGroup)
+std::string VController::buttonLabel(const EmuApp &app, KeyInfo k, bool inUIGroup, bool inCaptureGroup, bool aloneInUIGroup)
 {
 	if(!k.isAppKey())
 		return k.codes[1] ? comboLabel(k) : std::string{};
@@ -1339,17 +1339,18 @@ std::string VController::buttonLabel(const EmuApp &app, KeyInfo k, bool inUIGrou
 		return std::format("M{}", idx + 1);
 	switch(code)
 	{
-		// in UI groups, fast-forward speeds are shown by the arrow size instead
+		// in UI groups, fast-forward speeds are shown by the arrow size instead,
+		// a lone speed 2/3 or rolling save icon keeps its text since its icon is shared with other actions
 		case fastForward:
 		case toggleFastForward: return inUIGroup ? std::string{} : speedStr(AltSpeedMode::fast);
 		case fastForwardSpeed2:
-		case toggleFastForwardSpeed2: return inUIGroup ? std::string{} : speedStr(AltSpeedMode::fast2);
+		case toggleFastForwardSpeed2: return inUIGroup && !aloneInUIGroup ? std::string{} : speedStr(AltSpeedMode::fast2);
 		case fastForwardSpeed3:
-		case toggleFastForwardSpeed3: return inUIGroup ? std::string{} : speedStr(AltSpeedMode::fast3);
+		case toggleFastForwardSpeed3: return inUIGroup && !aloneInUIGroup ? std::string{} : speedStr(AltSpeedMode::fast3);
 		case slowMotion:
 		case toggleSlowMotion: return speedStr(AltSpeedMode::slow);
-		case saveRollingState: return inUIGroup ? std::string{} : "R-Save";
-		case loadRollingState: return inUIGroup ? std::string{} : "R-Load";
+		case saveRollingState: return inUIGroup && !aloneInUIGroup ? std::string{} : "R-Save";
+		case loadRollingState: return inUIGroup && !aloneInUIGroup ? std::string{} : "R-Load";
 		// the screenshot/replay/record group is identified by its icons, single buttons keep their text
 		case toggleVideoRecording: return inCaptureGroup ? std::string{} : "REC";
 		case saveInstantReplay: return inCaptureGroup ? std::string{} : "CLIP";
@@ -1401,7 +1402,7 @@ void VController::updateLabels()
 			{
 				if(!b.enabled)
 					continue;
-				if(auto str = buttonLabel(app(), b.key, isUI, isCaptureGroup); str.size())
+				if(auto str = buttonLabel(app(), b.key, isUI, isCaptureGroup, isUI && btns.size() == 1); str.size())
 				{
 					auto &l = labels.emplace_back(Gfx::Text{task, str, face}, b.bounds(), uint8_t(idx), isUI);
 					l.text.makeGlyphs();

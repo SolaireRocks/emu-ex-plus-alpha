@@ -714,7 +714,7 @@ public:
 	void resetHighlightedKeys();
 	void updateAppKeyHighlight(AppKeyCode, bool on);
 	void updateLabels();
-	static std::string buttonLabel(const EmuApp &, KeyInfo, bool inUIGroup, bool inCaptureGroup = false);
+	static std::string buttonLabel(const EmuApp &, KeyInfo, bool inUIGroup, bool inCaptureGroup = false, bool aloneInUIGroup = false);
 
 	// Element and button sizes, changed from the button placement screen
 	void setElementSizePercent(VControllerElement &, int percent);

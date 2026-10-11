@@ -61,10 +61,24 @@ GLBuffer<type>::GLBuffer(RendererTask &rTask, ByteBufferConfig config):
 	reset(config);
 }
 
-static void allocBufferData(GLenum target, GLuint name, GLsizeiptr size, GLenum usage)
+// Binding an index buffer while a vertex array object is bound replaces that object's index buffer,
+// so unbind any vertex array object before updating an index buffer
+template<BufferType type>
+static void bindForUpdate(const DrawContextSupport &support, GLuint name)
 {
-	glBindBuffer(target, name);
-	glBufferData(target, size, nullptr, usage);
+	if constexpr(type == BufferType::index)
+	{
+		if(support.hasVAOFuncs())
+			support.glBindVertexArray(0);
+	}
+	glBindBuffer(toGLEnum(type), name);
+}
+
+template<BufferType type>
+static void allocBufferData(const DrawContextSupport &support, GLuint name, GLsizeiptr size, GLenum usage)
+{
+	bindForUpdate<type>(support, name);
+	glBufferData(toGLEnum(type), size, nullptr, usage);
 }
 
 template<BufferType type>
@@ -76,22 +90,22 @@ void GLBuffer<type>::reset(ByteBufferConfig config)
 	auto usage = toGLEnum(config.usageHint);
 	if(!name())
 	{
-		task().runSync([&buffer = buffer, size = config.size, usage](GLTask::TaskContext ctx)
+		task().runSync([&buffer = buffer, size = config.size, usage, &support = task().renderer().support](GLTask::TaskContext ctx)
 		{
 			GLuint name;
 			glGenBuffers(1, &name);
 			buffer.get() = name;
 			//log.info("created buffer object:0x{:X} size:{}", name, size);
 			ctx.notifySemaphore();
-			allocBufferData(toGLEnum(type), name, size, usage);
+			allocBufferData<type>(support, name, size, usage);
 		});
 	}
 	else
 	{
-		task().run([name = name(), size = config.size, usage]()
+		task().run([name = name(), size = config.size, usage, &support = task().renderer().support]()
 		{
 			//log.info("reset buffer object:0x{:X} size:{}", name, size);
-			allocBufferData(toGLEnum(type), name, size, usage);
+			allocBufferData<type>(support, name, size, usage);
 		});
 	}
 }
@@ -112,8 +126,8 @@ MappedByteBuffer GLBuffer<type>::map(ssize_t offset, size_t size, BufferMapMode 
 		task().runSync([this, &ptr, offset, size]()
 		{
 			auto target = toGLEnum(type);
-			glBindBuffer(target, name());
-			ptr = task().renderer().support.glMapBufferRange(target,
+			bindForUpdate<type>(task().renderer().support, name());
+			ptr =task().renderer().support.glMapBufferRange(target,
 				offset, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT);
 			//log.debug("mapped offset:{} size:{} of buffer:0x{:X} to {}", offset, size, name(), ptr);
 		});
@@ -123,7 +137,7 @@ MappedByteBuffer GLBuffer<type>::map(ssize_t offset, size_t size, BufferMapMode 
 			{
 				//log.debug("unmapping buffer:0x{:X}", name);
 				auto target = toGLEnum(type);
-				glBindBuffer(target, name);
+				bindForUpdate<type>(support, name);
 				support.glUnmapBuffer(target);
 			});
 		}};
@@ -132,10 +146,10 @@ MappedByteBuffer GLBuffer<type>::map(ssize_t offset, size_t size, BufferMapMode 
 	{
 		return {{std::make_unique<uint8_t[]>(size).release(), size}, [this, offset](const uint8_t *ptr, size_t size)
 		{
-			task().run([name = name(), offset = offset, sizeBytes = size, dataPtr = ptr]()
+			task().run([name = name(), offset = offset, sizeBytes = size, dataPtr = ptr, &support = task().renderer().support]()
 			{
 				//log.debug("writing mapped data to buffer:0x{:X}", name);
-				writeSubData(name, offset, sizeBytes, dataPtr);
+				writeSubData(support, name, offset, sizeBytes, dataPtr);
 				delete[] dataPtr;
 			});
 		}};
@@ -147,15 +161,14 @@ void GLBuffer<type>::writeSubData(ssize_t offset, size_t size, const void *data)
 {
 	if(offset + size > sizeBytes_)
 		log.error("write of offset:{} size:{} larger than buffer size:{}", offset, size, sizeBytes_);
-	writeSubData(name(), offset, size, data);
+	writeSubData(task().renderer().support, name(), offset, size, data);
 }
 
 template<BufferType type>
-void GLBuffer<type>::writeSubData(GLuint name, ssize_t offset, size_t size, const void *data)
+void GLBuffer<type>::writeSubData(const DrawContextSupport &support, GLuint name, ssize_t offset, size_t size, const void *data)
 {
-	auto target = toGLEnum(type);
-	glBindBuffer(target, name);
-	glBufferSubData(target, offset, size, data);
+	bindForUpdate<type>(support, name);
+	glBufferSubData(toGLEnum(type), offset, size, data);
 }
 
 void destroyGLBufferRef(RendererTask &rTask, GLBufferRef name)

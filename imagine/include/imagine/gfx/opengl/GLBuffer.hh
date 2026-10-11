@@ -27,6 +27,8 @@
 namespace IG::Gfx
 {
 
+class DrawContextSupport;
+
 using GLBufferRef = GLuint;
 
 void destroyGLBufferRef(RendererTask &, GLBufferRef);
@@ -58,7 +60,7 @@ public:
 	size_t sizeBytes() const { return sizeBytes_; }
 	MappedByteBuffer map(ssize_t offset, size_t size, BufferMapMode);
 	void writeSubData(ssize_t offset, size_t size, const void *data);
-	static void writeSubData(GLuint name, ssize_t offset, size_t size, const void *data);
+	static void writeSubData(const DrawContextSupport &, GLuint name, ssize_t offset, size_t size, const void *data);
 
 protected:
 	UniqueGLBufferRef buffer;

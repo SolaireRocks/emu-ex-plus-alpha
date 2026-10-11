@@ -75,6 +75,14 @@ static void pushComboKeyPicker(View &view, EmuApp &app, const Input::Event &e, s
 	view.pushAndShow(std::move(multiChoiceView), e);
 }
 
+// Adds a key as its own element, either a gamepad-style button or (for app actions) a UI icon
+static void addSingleButtonElement(VController &vCtrl, KeyInfo k, bool asIcon)
+{
+	std::array keys{k};
+	vCtrl.add(InputComponentDesc{"", keys, asIcon ? InputComponent::ui : InputComponent::button, asIcon ? RT2DO : RB2DO});
+	vCtrl.place();
+}
+
 class DPadElementConfigView : public TableView, public EmuAppHelper
 {
 public:
@@ -1030,6 +1038,53 @@ TouchConfigView::TouchConfigView(ViewAttachParams attach, VController &vCtrl):
 			pushAndShow(makeView<AddNewButtonView>(*this, vController), e);
 		}
 	},
+	addSingleButton
+	{
+		"Add Single Button", attach,
+		[this](const Input::Event &e)
+		{
+			auto multiChoiceView = makeViewWithName<TextTableView>("Add Single Button", 32);
+			auto addKeys = [&](const KeyCategory &cat)
+			{
+				for(auto &k : cat.keys)
+				{
+					multiChoiceView->appendItem(app().inputManager.toString(k),
+						[this, k](View &parentView, const Input::Event &e)
+						{
+							if(!k.isAppKey()) // system keys only have the gamepad button style
+							{
+								addSingleButtonElement(vController, k, false);
+								reloadItems();
+								parentView.dismiss();
+								return;
+							}
+							auto styleView = makeViewWithName<TextTableView>(app().inputManager.toString(k), 2);
+							styleView->appendItem("As A Button (With Text Label)",
+								[this, k]
+								{
+									addSingleButtonElement(vController, k, false);
+									reloadItems();
+									popTo(*this);
+								});
+							styleView->appendItem("As An Icon",
+								[this, k]
+								{
+									addSingleButtonElement(vController, k, true);
+									reloadItems();
+									popTo(*this);
+								});
+							pushAndShow(std::move(styleView), e);
+						});
+				}
+			};
+			for(auto &cat : AppMeta::keyCategories() | std::views::filter([](auto &c){return !c.multiplayerIndex;}))
+			{
+				addKeys(cat);
+			}
+			addKeys(appKeyCategory);
+			pushAndShow(std::move(multiChoiceView), e);
+		}
+	},
 	allowButtonsPastContentBounds
 	{
 		"Allow Buttons In Display Cutout Area", attach,
@@ -1242,6 +1297,7 @@ void TouchConfigView::reloadItems()
 	}
 	item.emplace_back(&otherHeading);
 	item.emplace_back(&addButton);
+	item.emplace_back(&addSingleButton);
 	if(appContext().hasSystemDocumentPicker())
 	{
 		item.emplace_back(&exportLayoutItem);

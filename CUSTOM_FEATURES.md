@@ -21,6 +21,19 @@ controller under *Key/Gamepad Input Setup*, in the "In-Emulation Actions" catego
 Any app action (fast-forward speeds, macros, save/load, etc.) can also go into a regular gamepad button group:
 *edit the group ➔ tap a button ➔ Action*, then scroll to "In-Emulation Actions".
 
+## Adding one button at a time
+
+*On-screen Input Setup ➔ Add Single Button* (right under *Add New Button Group*) lists every button and action.
+The one you pick is added by itself in the middle of the screen, so you can move and resize it on its own.
+
+- Gamepad keys (A, B, Start, turbo keys, etc.) are added as a normal gamepad button.
+- App actions (fast-forward speeds, save/load, screenshot, macros, etc.) ask how to add them:
+  **As A Button (With Text Label)** (a gamepad-style button with a label like "Save" or "4x") or **As An Icon**
+  (like the menu and fast-forward icons). A lone fast-forward speed 2/3 or rolling save/load icon keeps a small
+  text label, because those share their icon with other actions.
+
+It then shows up in the Emulator Button Groups or UI Button Groups list, where it can be edited or removed like any group.
+
 ## Simultaneous presses (combo buttons)
 
 - *Edit a gamepad button group ➔ Add Combo Button (e.g. A + B)*: pick the first key, then the second.

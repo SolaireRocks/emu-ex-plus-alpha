@@ -46,11 +46,16 @@ There is no local toolchain on the Windows dev machine. Builds run only in GitHu
 | Rolling save states | `RollingSaveManager.{hh,cc}` (separate manual/auto file sets via `RollingSaveKind`), `gui/RollingSaveView.cc`, timer start/pause in `EmuSystem.cc` |
 | Per-game touch layouts | `VController::{enable,restoreGlobal,applyPending}GameLayout`, session config keys 203/204 |
 | Element/button sizes | `VControllerElement::sizePercent`, `VControllerButton::sizePercent`, size bar in `gui/PlaceVControlsView.cc`. Saved after each element when the element list's configId is 1 (`sizedElementsConfigId`); configId 0 is upstream data without sizes. Groups grow their bounds by `overflowPx` for enlarged buttons |
+| Add Single Button | TouchConfigView `addSingleButton` item + `addSingleButtonElement` (one-key `InputComponentDesc`: `button` type for gamepad style, `ui` type for icons, icons only for app actions). `buttonLabel`'s `aloneInUIGroup` keeps text on lone shared-icon actions |
 | Layout export/import | `VController::{export,import}Layout` (config-format file with marker key 216), TouchConfigView items + `onDocumentPicked`, `ApplicationContext::showSystemCreateDocumentPicker(suggestedName)` (Java `createDocument(long, String)`, kept in `imagine/src/base/android/proguard/imagine.cfg`) |
 | Double-tap screenshot | `VController::checkDoubleTap` |
 | High-res screenshots | `EmuVideo::doScreenshot` (nearest-neighbor scale, optional 4:3) |
 | Video recording and instant replay | `MediaRecorder.{hh,cc}` (NDK MediaCodec/MediaMuxer via dlopen), hooks in `EmuVideo::finishFrame`, `EmuAudio::writeFrames`, `EmuSystemTask::advanceFrames` |
 | Options UI | `gui/ExtrasOptionView.cc` (Options ➔ Extras), System Actions entries |
+
+Index buffer updates in `imagine/src/gfx/opengl/Buffer.cc` unbind the current VAO first (`bindForUpdate`); otherwise
+binding GL_ELEMENT_ARRAY_BUFFER swaps the index buffer of whatever VAO was last bound (this broke the size bar drawing
+in PlaceVControlsView, whose uint16 `gridIdxs` got attached to the size bar's VAO).
 
 Custom config keys are numbered 200 and up (`EmuOptions.hh`) so they don't collide with upstream.
 New `AppKeyCode` values must stay appended at the end, because codes are saved in config files.
