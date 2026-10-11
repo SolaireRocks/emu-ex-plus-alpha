@@ -89,6 +89,15 @@ inline constexpr int16_t defaultDPadDeadzoneMM100x = 135;
 inline constexpr float defaultDPadDiagonalSensitivity = .57f;
 inline constexpr int8_t defaultButtonSpacingMM = 2;
 
+// size of a whole element or of a single button, as a percentage of the normal size
+inline constexpr int minElementSizePercent = 30;
+inline constexpr int maxElementSizePercent = 300;
+inline constexpr int minButtonSizePercent = 30;
+inline constexpr int maxButtonSizePercent = 250;
+inline constexpr int sizePercentStep = 5;
+
+constexpr int scaledSizePixels(int sizePx, int percent) { return makeEvenRoundedUp(std::max(sizePx * percent / 100, 2)); }
+
 class VControllerDPad
 {
 public:
@@ -253,6 +262,7 @@ public:
 	Gfx::Color color{};
 	KeyInfo key{};
 	uint8_t spriteIdx{};
+	uint8_t sizePercent{100};
 	float imageScale{1.f};
 	bool distinctTurbo{true};
 	bool enabled{true};
@@ -354,6 +364,7 @@ protected:
 	int spacingPixels{};
 	int16_t btnStagger{};
 	int16_t btnRowShift{};
+	WSize overflowPx{}; // extra space around the button grid for buttons larger than the group's button size
 public:
 	LayoutConfig layout{};
 };
@@ -404,6 +415,7 @@ public:
 protected:
 	Gfx::ILitTexQuads quads;
 	WRect bounds_{};
+	WSize overflowPx{};
 	int enabledBtns{};
 	int btnSize{};
 public:
@@ -420,6 +432,7 @@ public:
 
 	std::array<VControllerLayoutPosition, 2> layoutPos;
 	VControllerState state{VControllerState::SHOWN};
+	uint16_t sizePercent{100};
 
 	constexpr auto dPad(this auto&& self) { return std::get_if<VControllerDPad>(&self); }
 	constexpr auto buttonGroup(this auto&& self) { return std::get_if<VControllerButtonGroup>(&self); }
@@ -429,7 +442,19 @@ public:
 	{
 		return (sizeof(VControllerLayoutPosition::pos) + sizeof(_2DOrigin::PackedType)) * 2
 			+ sizeof(state)
-			+ visit([](auto &e){ return e.configSize(); });
+			+ visit([](auto &e){ return e.configSize(); })
+			+ sizeof(sizePercent) + 1 + buttonCount(); // element size, button count, button sizes
+	}
+
+	size_t buttonCount() const
+	{
+		return visit([](auto &e) -> size_t
+		{
+			if constexpr(requires {e.buttons;})
+				return std::min(e.buttons.size(), 255zu);
+			else
+				return 0;
+		});
 	}
 
 	WRect bounds() const { return visit([](auto &e){ return e.bounds(); }); }
@@ -517,6 +542,17 @@ public:
 	std::span<VControllerButton> buttons()
 	{
 		return visit([&](auto &e) -> std::span<VControllerButton>
+		{
+			if constexpr(requires {e.buttons;})
+				return e.buttons;
+			else
+				return {};
+		});
+	}
+
+	std::span<const VControllerButton> buttons() const
+	{
+		return visit([&](auto &e) -> std::span<const VControllerButton>
 		{
 			if constexpr(requires {e.buttons;})
 				return e.buttons;
@@ -679,6 +715,14 @@ public:
 	void updateAppKeyHighlight(AppKeyCode, bool on);
 	void updateLabels();
 	static std::string buttonLabel(const EmuApp &, KeyInfo, bool inUIGroup, bool inCaptureGroup = false);
+
+	// Element and button sizes, changed from the button placement screen
+	void setElementSizePercent(VControllerElement &, int percent);
+	void setButtonSizePercent(VControllerButton &, int percent);
+
+	// Layout files
+	bool exportLayout(CStringView uri) const;
+	bool importLayout(CStringView uri);
 
 	// Distinct turbo button styling
 	void setTurboButtonStyle(VControllerTurboStyle);

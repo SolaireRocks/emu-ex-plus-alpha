@@ -31,6 +31,8 @@ void VControllerButton::setPos(WPt pos, WRect viewBounds, _2DOrigin o)
 
 void VControllerButton::setSize(WSize size, WSize extendedSize)
 {
+	if(sizePercent != 100)
+		size = {scaledSizePixels(size.x, sizePercent), scaledSizePixels(size.y, sizePercent)};
 	size.y /= aspectRatio;
 	bounds_ = makeWindowRectRel(bounds_.pos(C2DO), size);
 	extendedBounds_ = bounds_ + WRect{{-extendedSize}, {extendedSize}};

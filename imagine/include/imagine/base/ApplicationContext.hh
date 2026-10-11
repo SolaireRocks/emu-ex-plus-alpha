@@ -179,7 +179,7 @@ public:
 	bool showSystemPathPicker();
 	bool hasSystemDocumentPicker() const;
 	bool showSystemDocumentPicker();
-	bool showSystemCreateDocumentPicker();
+	bool showSystemCreateDocumentPicker(CStringView suggestedName = {});
 	FileIO openFileUri(CStringView uri, OpenFlags oFlags = {}) const;
 	UniqueFileDescriptor openFileUriFd(CStringView uri, OpenFlags oFlags = {}) const;
 	bool fileUriExists(CStringView uri) const;

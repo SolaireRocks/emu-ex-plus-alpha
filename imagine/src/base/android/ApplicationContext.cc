@@ -452,9 +452,9 @@ bool ApplicationContext::showSystemDocumentPicker()
 	return application().openDocumentIntent(mainThreadJniEnv(), act, baseActivityObject());
 }
 
-bool ApplicationContext::showSystemCreateDocumentPicker()
+bool ApplicationContext::showSystemCreateDocumentPicker(CStringView suggestedName)
 {
-	return application().createDocumentIntent(mainThreadJniEnv(), act, baseActivityObject());
+	return application().createDocumentIntent(mainThreadJniEnv(), act, baseActivityObject(), suggestedName);
 }
 
 void ApplicationContext::setAcceptIPC(bool on, const char *) { application().acceptsIntents = on; }

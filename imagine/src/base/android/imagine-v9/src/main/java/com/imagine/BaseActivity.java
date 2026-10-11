@@ -669,7 +669,7 @@ public final class BaseActivity extends NativeActivity implements AudioManager.O
 		return true;
 	}
 
-	boolean createDocument(long nativeUserData)
+	boolean createDocument(long nativeUserData, String suggestedName)
 	{
 		if(android.os.Build.VERSION.SDK_INT < 19)
 			return false;
@@ -677,6 +677,8 @@ public final class BaseActivity extends NativeActivity implements AudioManager.O
 		Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
 		intent.addCategory(Intent.CATEGORY_OPENABLE);
 		intent.setType("application/octet-stream");
+		if(suggestedName != null)
+			intent.putExtra(Intent.EXTRA_TITLE, suggestedName);
 		try
 		{
 			startActivityForResult(intent, REQUEST_OPEN_DOCUMENT);

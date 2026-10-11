@@ -601,10 +601,10 @@ bool AndroidApplication::openDocumentIntent(JNIEnv* env, ANativeActivity* nActiv
 	return jOpenDocument(env, baseActivity, (jlong)nActivity);
 }
 
-bool AndroidApplication::createDocumentIntent(JNIEnv* env, ANativeActivity* nActivity, jobject baseActivity)
+bool AndroidApplication::createDocumentIntent(JNIEnv* env, ANativeActivity* nActivity, jobject baseActivity, CStringView suggestedName)
 {
-	JNI::InstMethod<jboolean(jlong)> jCreateDocument{env, env->GetObjectClass(baseActivity), "createDocument", "(J)Z"};
-	return jCreateDocument(env, baseActivity, (jlong)nActivity);
+	JNI::InstMethod<jboolean(jlong, jstring)> jCreateDocument{env, env->GetObjectClass(baseActivity), "createDocument", "(JLjava/lang/String;)Z"};
+	return jCreateDocument(env, baseActivity, (jlong)nActivity, suggestedName.size() ? env->NewStringUTF(suggestedName) : nullptr);
 }
 
 void AndroidApplication::handleDocumentIntentResult(ApplicationContext ctx, const char *uri, const char *name)

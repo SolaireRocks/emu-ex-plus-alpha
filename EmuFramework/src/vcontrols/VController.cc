@@ -19,6 +19,7 @@
 #include <emuframework/AppKeyCode.hh>
 #include <emuframework/Option.hh>
 #include "../WindowData.hh"
+import configFile;
 
 namespace EmuEx
 {
@@ -171,6 +172,8 @@ void VController::updateTextures()
 static void setSize(VControllerElement &elem, int sizePx, Gfx::Renderer &r)
 {
 	assume(sizePx);
+	if(elem.sizePercent != 100)
+		sizePx = scaledSizePixels(sizePx, elem.sizePercent);
 	elem.visit(overloaded
 	{
 		[&](VControllerDPad &dpad){ dpad.setSize(r, makeEvenRoundedUp(int(sizePx * 2.5f))); },
@@ -726,7 +729,16 @@ bool VController::updateAutoOnScreenControlVisible()
 	return false;
 }
 
-static bool readVControllerElement(const InputManager &mgr, MapIO &io, std::vector<VControllerElement> &elems, bool readingUIElems)
+// Config ID 0 is the upstream format, 1 adds the element and button sizes after each element
+constexpr uint8_t sizedElementsConfigId = 1;
+
+static int validSizePercent(int percent, int min, int max)
+{
+	return percent >= min && percent <= max ? percent : 100;
+}
+
+static bool readVControllerElement(const InputManager &mgr, MapIO &io, std::vector<VControllerElement> &elems, bool readingUIElems,
+	uint8_t configId)
 {
 	auto elemType = io.get<uint8_t>();
 	if(elemType == 0)
@@ -781,6 +793,18 @@ static bool readVControllerElement(const InputManager &mgr, MapIO &io, std::vect
 	io.read(elem.layoutPos[1].pos);
 	elem.layoutPos[1].origin = _2DOrigin::unpack(io.get<_2DOrigin::PackedType>());
 	if(auto state = io.get<VControllerState>(); state <= VControllerState::HIDDEN) { elem.state = state; }
+	if(configId >= sizedElementsConfigId)
+	{
+		elem.sizePercent = validSizePercent(io.get<uint16_t>(), minElementSizePercent, maxElementSizePercent);
+		auto btnSizes = io.get<uint8_t>();
+		auto btns = elem.buttons();
+		for(auto i : iotaCount(btnSizes))
+		{
+			auto percent = io.get<uint8_t>();
+			if(size_t(i) < btns.size())
+				btns[i].sizePercent = validSizePercent(percent, minButtonSizePercent, maxButtonSizePercent);
+		}
+	}
 	return true;
 }
 
@@ -812,12 +836,12 @@ bool VController::readConfig(EmuApp &app, MapIO &io, unsigned key)
 		{
 			gpElements.clear();
 			[[maybe_unused]] auto emuDeviceId = io.get<uint8_t>(); // reserved for future use
-			[[maybe_unused]] auto configId = io.get<uint8_t>(); // reserved for future use
+			auto configId = io.get<uint8_t>();
 			auto elements = io.get<uint8_t>();
 			log.info("read emu device button data ({} bytes) with {} element(s)", io.size(), elements);
 			for([[maybe_unused]] auto i: iotaCount(elements))
 			{
-				if(!readVControllerElement(app.inputManager, io, gpElements, false))
+				if(!readVControllerElement(app.inputManager, io, gpElements, false, configId))
 					return false;
 			}
 			return true;
@@ -825,12 +849,12 @@ bool VController::readConfig(EmuApp &app, MapIO &io, unsigned key)
 		case CFGKEY_VCONTROLLER_UI_BUTTONS_V2:
 		{
 			uiElements.clear();
-			[[maybe_unused]] auto configId = io.get<uint8_t>(); // reserved for future use
+			auto configId = io.get<uint8_t>();
 			auto elements = io.get<uint8_t>();
 			log.info("read UI button data ({} bytes) with {} element(s)", io.size(), elements);
 			for([[maybe_unused]] auto i: iotaCount(elements))
 			{
-				if(!readVControllerElement(app.inputManager, io, uiElements, true))
+				if(!readVControllerElement(app.inputManager, io, uiElements, true, configId))
 					return false;
 			}
 			return true;
@@ -876,6 +900,11 @@ static void writeToConfig(const VControllerElement &e, FileIO &io)
 	io.put(e.layoutPos[1].pos);
 	io.put(e.layoutPos[1].origin.pack());
 	io.put(e.state);
+	// sizedElementsConfigId data
+	io.put(e.sizePercent);
+	auto btnCount = e.buttonCount();
+	io.put(uint8_t(btnCount));
+	for(const auto &b : e.buttons().first(btnCount)) { io.put(b.sizePercent); }
 }
 
 static size_t configDataSizeBytes(const std::vector<VControllerElement> &elems, bool savingUIElems)
@@ -909,7 +938,7 @@ void VController::writeButtonsConfig(FileIO &io, const std::vector<VControllerEl
 	io.put(uint16_t(bytes));
 	io.put(key);
 	io.put(int8_t(0));
-	io.put(int8_t(0));
+	io.put(sizedElementsConfigId);
 	io.put(uint8_t(std::min(gpElements.size(), 255zu)));
 	log.info("wrote emu device button data ({} bytes) with {} element(s)", bytes, gpElements.size());
 	for(const auto &e : gpElements) { writeToConfig(e, io); }
@@ -930,7 +959,7 @@ void VController::writeUIButtonsConfig(FileIO &io, const std::vector<VController
 	}
 	io.put(uint16_t(bytes));
 	io.put(key);
-	io.put(int8_t(0));
+	io.put(sizedElementsConfigId);
 	io.put(uint8_t(std::min(uiElements.size(), 255zu)));
 	log.info("wrote UI button data ({} bytes) with {} element(s)", bytes, uiElements.size());
 	for(const auto &e : uiElements) { writeToConfig(e, io); }
@@ -1466,6 +1495,11 @@ std::vector<VControllerElement> VController::cloneElements(const std::vector<VCo
 		});
 		copy.layoutPos = e.layoutPos;
 		copy.state = e.state;
+		copy.sizePercent = e.sizePercent;
+		auto srcBtns = e.buttons();
+		auto btns = copy.buttons();
+		for(size_t i = 0; i < srcBtns.size() && i < btns.size(); i++)
+			btns[i].sizePercent = srcBtns[i].sizePercent;
 	}
 	return out;
 }
@@ -1550,12 +1584,12 @@ bool VController::readSessionConfig(const InputManager &mgr, MapIO &io, unsigned
 	{
 		[[maybe_unused]] auto emuDeviceId = io.get<uint8_t>(); // reserved
 	}
-	[[maybe_unused]] auto configId = io.get<uint8_t>(); // reserved
+	auto configId = io.get<uint8_t>();
 	auto elements = io.get<uint8_t>();
 	log.info("read per-game {} button data with {} element(s)", isUI ? "UI" : "device", elements);
 	for([[maybe_unused]] auto i: iotaCount(elements))
 	{
-		if(!readVControllerElement(mgr, io, elems, isUI))
+		if(!readVControllerElement(mgr, io, elems, isUI, configId))
 		{
 			log.error("bad per-game layout data");
 			pendingGameLayout.reset();
@@ -1571,6 +1605,101 @@ void VController::writeSessionConfig(FileIO &io) const
 		return;
 	writeButtonsConfig(io, gpElements, CFGKEY_VCONTROLLER_GAME_DEVICE_BUTTONS);
 	writeUIButtonsConfig(io, uiElements, CFGKEY_VCONTROLLER_GAME_UI_BUTTONS);
+}
+
+void VController::setElementSizePercent(VControllerElement &elem, int percent)
+{
+	elem.sizePercent = std::clamp(percent, minElementSizePercent, maxElementSizePercent);
+	place();
+}
+
+void VController::setButtonSizePercent(VControllerButton &btn, int percent)
+{
+	btn.sizePercent = std::clamp(percent, minButtonSizePercent, maxButtonSizePercent);
+	place();
+}
+
+// A layout file is a config file holding a marker key, the button size, and both element lists
+bool VController::exportLayout(CStringView uri) const
+{
+	try
+	{
+		auto io = appContext().openFileUri(uri, OpenFlags::newFile());
+		writeConfigHeader(io);
+		writeOptionValue(io, CFGKEY_VCONTROLLER_LAYOUT_FILE, uint8_t(1));
+		writeOptionValue(io, CFGKEY_TOUCH_CONTROL_SIZE, buttonSize());
+		writeButtonsConfig(io, gpElements, CFGKEY_VCONTROLLER_DEVICE_BUTTONS_V2);
+		writeUIButtonsConfig(io, uiElements, CFGKEY_VCONTROLLER_UI_BUTTONS_V2);
+		log.info("exported layout to:{}", uri);
+		return true;
+	}
+	catch(...)
+	{
+		log.error("error exporting layout to:{}", uri);
+		return false;
+	}
+}
+
+static bool readElementList(const InputManager &mgr, MapIO &io, std::vector<VControllerElement> &elems, bool isUI)
+{
+	elems.clear();
+	if(!isUI)
+	{
+		[[maybe_unused]] auto emuDeviceId = io.get<uint8_t>(); // reserved
+	}
+	auto configId = io.get<uint8_t>();
+	auto elements = io.get<uint8_t>();
+	for([[maybe_unused]] auto i: iotaCount(elements))
+	{
+		if(!readVControllerElement(mgr, io, elems, isUI, configId))
+			return false;
+	}
+	return true;
+}
+
+bool VController::importLayout(CStringView uri)
+{
+	auto &mgr = app().inputManager;
+	bool isLayoutFile{}, readGp{}, readUi{};
+	std::optional<int16_t> newBtnSize;
+	std::vector<VControllerElement> newGp, newUi;
+	readConfigKeys(FileUtils::bufferFromUri(appContext(), uri, {.test = true}),
+		[&](uint16_t key, auto &io)
+		{
+			switch(key)
+			{
+				case CFGKEY_VCONTROLLER_LAYOUT_FILE:
+					isLayoutFile = true;
+					break;
+				case CFGKEY_TOUCH_CONTROL_SIZE:
+					readOptionValue<int16_t>(io, [&](auto val){ newBtnSize = val; });
+					break;
+				case CFGKEY_VCONTROLLER_DEVICE_BUTTONS_V2:
+					readGp = readElementList(mgr, io, newGp, false);
+					break;
+				case CFGKEY_VCONTROLLER_UI_BUTTONS_V2:
+					readUi = readElementList(mgr, io, newUi, true);
+					break;
+			}
+		}, log);
+	if(!isLayoutFile || !readGp || !readUi)
+	{
+		log.error("{} isn't a valid layout file", uri);
+		return false;
+	}
+	log.info("imported layout with {} device and {} UI element(s)", newGp.size(), newUi.size());
+	resetInput();
+	gpElements = std::move(newGp);
+	uiElements = std::move(newUi);
+	if(newBtnSize)
+		setButtonSize(*newBtnSize, false);
+	if(!hasWindow())
+		return true;
+	updateAllElements(*this, gpElements, renderer());
+	updateAllElements(*this, uiElements, renderer());
+	setInputPlayer(inputPlayer_);
+	place();
+	return true;
 }
 
 }

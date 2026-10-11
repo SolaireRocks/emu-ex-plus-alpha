@@ -249,7 +249,7 @@ FS::AssetDirectoryIterator ApplicationContext::openAssetDirectory(CStringView pa
 
 [[gnu::weak]] bool ApplicationContext::showSystemDocumentPicker() { return false; }
 
-[[gnu::weak]] bool ApplicationContext::showSystemCreateDocumentPicker() { return false; }
+[[gnu::weak]] bool ApplicationContext::showSystemCreateDocumentPicker(CStringView) { return false; }
 
 [[gnu::weak]] FileIO ApplicationContext::openFileUri(CStringView uri, OpenFlags openFlags) const
 {

@@ -82,7 +82,7 @@ public:
 	void handleIntent(ApplicationContext);
 	bool openDocumentTreeIntent(JNIEnv*, ANativeActivity*, jobject baseActivity);
 	bool openDocumentIntent(JNIEnv*, ANativeActivity*, jobject baseActivity);
-	bool createDocumentIntent(JNIEnv*, ANativeActivity*, jobject baseActivity);
+	bool createDocumentIntent(JNIEnv*, ANativeActivity*, jobject baseActivity, CStringView suggestedName);
 	void emplaceFrameTimer(FrameTimer&, Screen&, bool useVariableTime = {});
 	bool requestPermission(ApplicationContext, Permission);
 	UniqueFileDescriptor openFileUriFd(JNIEnv *, jobject baseActivity, CStringView uri, OpenFlags oFlags = {}) const;

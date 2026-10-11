@@ -100,12 +100,31 @@ static bool allButtonsAreHalfHeight(const auto &btns)
 	return std::ranges::all_of(btns, [](auto &b){ return !b.isFullHeight(); });
 }
 
+// how far resized buttons stick out of their grid cells, on each side
+static WSize buttonOverflow(const auto &buttons, WSize cellSize)
+{
+	WSize overflow{};
+	for(const auto &b : buttons)
+	{
+		if(b.skipLayout || !b.enabled)
+			continue;
+		overflow.x = std::max(overflow.x, (b.bounds().xSize() - cellSize.x) / 2);
+		overflow.y = std::max(overflow.y, (b.bounds().ySize() - cellSize.y) / 2);
+	}
+	return overflow;
+}
+
+static WRect insetRect(WRect r, WSize inset)
+{
+	return r + WRect{{inset.x, inset.y}, {-inset.x, -inset.y}};
+}
+
 void VControllerButtonGroup::setPos(WPt pos, WindowRect viewBounds)
 {
 	bounds_.setPos(pos, C2DO);
 	bounds_.fitIn(viewBounds);
 	int ySize = allButtonsAreHalfHeight(buttons) ? btnSize / 2 : btnSize;
-	layoutButtons(buttons, bounds_, viewBounds, {btnSize, ySize},
+	layoutButtons(buttons, insetRect(bounds_, overflowPx), viewBounds, {btnSize, ySize},
 		spacingPixels, btnStagger, btnRowShift, layout.rowItems, LB2DO);
 	updateSprites();
 }
@@ -118,12 +137,13 @@ void VControllerButtonGroup::setButtonSize(int sizePx)
 	int btnsPerRow = std::min(buttonsToLayout(buttons), int(layout.rowItems));
 	int xSizePixel = sizePx * btnsPerRow + spacingPixels*(btnsPerRow-1) + std::abs(btnRowShift*((int)rows()-1));
 	int ySizePixel = ySizePx * rows() + spacingPixels*(rows()-1) + std::abs(btnStagger*((int)btnsPerRow-1));
-	bounds_ = makeWindowRectRel({0, 0}, {xSizePixel, ySizePixel});
 	auto extendedSize = paddingPixels();
 	for(auto &b : buttons)
 	{
 		b.setSize({sizePx, sizePx}, extendedSize);
 	}
+	overflowPx = buttonOverflow(buttons, {sizePx, ySizePx});
+	bounds_ = makeWindowRectRel({0, 0}, {xSizePixel + overflowPx.x * 2, ySizePixel + overflowPx.y * 2});
 	updateSprites();
 }
 
@@ -274,7 +294,7 @@ void VControllerUIButtonGroup::setPos(WPt pos, WRect viewBounds)
 {
 	bounds_.setPos(pos, C2DO);
 	bounds_.fitIn(viewBounds);
-	layoutButtons(buttons, bounds_, viewBounds, {btnSize, btnSize},
+	layoutButtons(buttons, insetRect(bounds_, overflowPx), viewBounds, {btnSize, btnSize},
 		0, 0, 0, layout.rowItems, LT2DO);
 	updateSprites();
 }
@@ -285,11 +305,12 @@ void VControllerUIButtonGroup::setButtonSize(int sizePx)
 	int btnsPerRow = std::min(buttonsToLayout(buttons), int(layout.rowItems));
 	int xSizePixel = sizePx * btnsPerRow;
 	int ySizePixel = sizePx * rows();
-	bounds_ = makeWindowRectRel({0, 0}, {xSizePixel, ySizePixel});
 	for(auto &b : buttons)
 	{
 		b.setSize({sizePx, sizePx});
 	}
+	overflowPx = buttonOverflow(buttons, {sizePx, sizePx});
+	bounds_ = makeWindowRectRel({0, 0}, {xSizePixel + overflowPx.x * 2, ySizePixel + overflowPx.y * 2});
 	updateSprites();
 }
 

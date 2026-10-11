@@ -1148,6 +1148,32 @@ TouchConfigView::TouchConfigView(ViewAttachParams attach, VController &vCtrl):
 			vController.doubleTapScreenshot = item.flipBoolValue(*this);
 		}
 	},
+	exportLayoutItem
+	{
+		"Export Layout To File", attach,
+		[this]
+		{
+			pendingPicker = PickerAction::exportLayout;
+			if(!appContext().showSystemCreateDocumentPicker("Controller Layout.vclayout"))
+			{
+				pendingPicker = PickerAction::none;
+				app().postErrorMessage("File picker isn't available on this device");
+			}
+		}
+	},
+	importLayoutItem
+	{
+		"Import Layout From File", attach,
+		[this]
+		{
+			pendingPicker = PickerAction::importLayout;
+			if(!appContext().showSystemDocumentPicker())
+			{
+				pendingPicker = PickerAction::none;
+				app().postErrorMessage("File picker isn't available on this device");
+			}
+		}
+	},
 	devButtonsHeading
 	{
 		"Emulator Button Groups", attach
@@ -1216,6 +1242,11 @@ void TouchConfigView::reloadItems()
 	}
 	item.emplace_back(&otherHeading);
 	item.emplace_back(&addButton);
+	if(appContext().hasSystemDocumentPicker())
+	{
+		item.emplace_back(&exportLayoutItem);
+		item.emplace_back(&importLayoutItem);
+	}
 	if(used(allowButtonsPastContentBounds) && appContext().hasDisplayCutout())
 	{
 		item.emplace_back(&allowButtonsPastContentBounds);
@@ -1238,6 +1269,34 @@ void TouchConfigView::reloadItems()
 void TouchConfigView::onShow()
 {
 	vController.applyButtonAlpha(.75);
+}
+
+bool TouchConfigView::onDocumentPicked(const DocumentPickerEvent &e)
+{
+	switch(std::exchange(pendingPicker, PickerAction::none))
+	{
+		case PickerAction::none: return false;
+		case PickerAction::exportLayout:
+			if(vController.exportLayout(e.uri))
+				app().postMessage(3, false, std::format("Saved layout to {}", e.displayName));
+			else
+				app().postErrorMessage(4, "Can't write the layout file");
+			return true;
+		case PickerAction::importLayout:
+			if(!vController.importLayout(e.uri))
+			{
+				app().postErrorMessage(4, std::format("{} isn't a layout file", e.displayName));
+				return true;
+			}
+			vController.applyButtonAlpha(.75);
+			if(vController.usesGameLayout() && system().hasContent())
+				system().sessionOptionSet();
+			reloadItems();
+			place();
+			app().postMessage(3, false, std::format("Loaded layout from {}", e.displayName));
+			return true;
+	}
+	return false;
 }
 
 TouchConfigView::~TouchConfigView()

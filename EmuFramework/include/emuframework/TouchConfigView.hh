@@ -40,8 +40,11 @@ public:
 	void draw(Gfx::RendererCommands&__restrict__, ViewDrawParams p = {}) const final;
 	void reloadItems();
 	void onShow() final;
+	bool onDocumentPicked(const DocumentPickerEvent&) final;
 
 protected:
+	enum class PickerAction : uint8_t { none, exportLayout, importLayout };
+
 	VController &vController;
 	TextMenuItem touchCtrlItem[3];
 	MultiChoiceMenuItem touchCtrl;
@@ -65,6 +68,9 @@ protected:
 	BoolMenuItem perGameLayout;
 	BoolMenuItem turboStyle;
 	BoolMenuItem doubleTapScreenshot;
+	TextMenuItem exportLayoutItem;
+	TextMenuItem importLayoutItem;
+	PickerAction pendingPicker{};
 	TextHeadingMenuItem devButtonsHeading;
 	TextHeadingMenuItem uiButtonsHeading;
 	TextHeadingMenuItem otherHeading;

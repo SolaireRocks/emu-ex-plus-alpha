@@ -37,6 +37,27 @@ An active speed button turns red.
 Turbo buttons now get a bright orange outline and a stronger tint (*Turbo Button Style ➔ Outline*).
 Switch back with *Options ➔ Extras ➔ Turbo Button Style ➔ Classic*.
 
+## Resizing button groups and single buttons
+
+In *On-screen Input Setup ➔ Set Button Positions*, tap (don't drag) a button group, the D-pad, or a single button.
+It gets a yellow outline and a size bar appears at the bottom of the screen (at the top instead if the bar
+would cover what you selected):
+
+- **Group / Button**: tapping a button selects just that button. Tap this to switch between resizing
+  the button and its whole group. It's grayed out when you tapped the D-pad or the space around the buttons.
+- **-** / **+**: shrink or grow in 5% steps (groups 30–300%, single buttons 30–250%). **Reset** goes back to 100%.
+- **Done**, or tapping an empty spot, closes the bar. Dragging still moves things as before.
+
+A resized button stays centered in its spot, so an enlarged one can overlap its neighbors
+(raise the group's *Spacing* if that's a problem). Sizes are saved with the layout, including per-game layouts. They apply on top of the overall *Button Size* setting.
+
+## Exporting and importing a layout
+
+*On-screen Input Setup ➔ Export Layout To File* saves the current on-screen layout (all groups, their buttons,
+positions, sizes, and the overall button size) to a file you name, e.g. in Downloads or Google Drive.
+*Import Layout From File* loads one back and replaces the current layout. If *Use Separate Layout For This Game*
+is on, export and import use that game's layout.
+
 ## Per-game control layouts
 
 With a game loaded, open *On-screen Input Setup* and turn on **Use Separate Layout For This Game**.
