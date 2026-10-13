@@ -46,7 +46,7 @@ There is no local toolchain on the Windows dev machine. Builds run only in GitHu
 | Rolling save states | `RollingSaveManager.{hh,cc}` (separate manual/auto file sets via `RollingSaveKind`), `gui/RollingSaveView.cc`, timer start/pause in `EmuSystem.cc` |
 | Per-game touch layouts | `VController::{enable,restoreGlobal,applyPending}GameLayout`, session config keys 203/204 |
 | Element/button sizes | `VControllerElement::sizePercent`, `VControllerButton::sizePercent`, size bar in `gui/PlaceVControlsView.cc`. Saved after each element when the element list's configId is 1 (`sizedElementsConfigId`); configId 0 is upstream data without sizes. Groups grow their bounds by `overflowPx` for enlarged buttons |
-| Add Single Button | TouchConfigView `addSingleButton` item + `addSingleButtonElement` (one-key `InputComponentDesc`: `button` type for gamepad style, `ui` type for icons, icons only for app actions). `buttonLabel`'s `aloneInUIGroup` keeps text on lone shared-icon actions |
+| Add Single Button | TouchConfigView `addSingleButton` item + `addSingleButtonElement` (one-key `InputComponentDesc`: `button` type for gamepad style, `ui` type for icons, icons only for app actions). `buttonLabel`'s `aloneInUIGroup` keeps text on lone fast-forward speed 2/3 icons (rolling save/load icons never have text) |
 | Layout export/import | `VController::{export,import}Layout` (config-format file with marker key 216), TouchConfigView items + `onDocumentPicked`, `ApplicationContext::showSystemCreateDocumentPicker(suggestedName)` (Java `createDocument(long, String)`, kept in `imagine/src/base/android/proguard/imagine.cfg`) |
 | Double-tap screenshot | `VController::checkDoubleTap` |
 | High-res screenshots | `EmuVideo::doScreenshot` (nearest-neighbor scale, optional 4:3) |

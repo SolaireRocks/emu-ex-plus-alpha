@@ -29,8 +29,8 @@ The one you pick is added by itself in the middle of the screen, so you can move
 - Gamepad keys (A, B, Start, turbo keys, etc.) are added as a normal gamepad button.
 - App actions (fast-forward speeds, save/load, screenshot, macros, etc.) ask how to add them:
   **As A Button (With Text Label)** (a gamepad-style button with a label like "Save" or "4x") or **As An Icon**
-  (like the menu and fast-forward icons). A lone fast-forward speed 2/3 or rolling save/load icon keeps a small
-  text label, because those share their icon with other actions.
+  (like the menu and fast-forward icons). A lone fast-forward speed 2/3 icon keeps a small text label,
+  because it shares its icon with the other speeds. Rolling save/load icons have no text.
 
 It then shows up in the Emulator Button Groups or UI Button Groups list, where it can be edited or removed like any group.
 
