@@ -304,6 +304,7 @@ static Screen *extraWindowScreen(ApplicationContext ctx)
 void EmuApp::mainInitCommon(ApplicationInitParams initParams, ApplicationContext ctx)
 {
 	loadConfigFile(ctx);
+	mediaRecorder.deleteUnfinishedFiles();
 	system().onOptionsLoaded();
 	loadSystemOptions();
 	updateLegacySavePathOnStoragePath(ctx, system());
@@ -327,6 +328,7 @@ void EmuApp::mainInitCommon(ApplicationInitParams initParams, ApplicationContext
 			if(backgrounded)
 			{
 				suspendEmulation(*this);
+				mediaRecorder.onAppBackgrounded();
 				if(showsNotificationIcon)
 				{
 					auto title = std::format("{} was suspended", ApplicationMeta::name);

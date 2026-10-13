@@ -178,6 +178,19 @@ static Api &api()
 
 using namespace NdkMedia;
 
+// tells the main thread a file is finished, so it can delete it if empty and drop it from the unfinished file list
+static void postFileDone(EmuApp &app, std::string path, bool keepFile, std::string text, bool error)
+{
+	struct Msg { std::string path, text; bool keepFile, error; };
+	auto msg = new Msg{std::move(path), std::move(text), keepFile, error};
+	app.runOnMainThread([appPtr = &app, msg](ApplicationContext)
+	{
+		appPtr->mediaRecorder.onFileDone(msg->path, msg->keepFile);
+		appPtr->postMessage(4, msg->error, msg->text);
+		delete msg;
+	});
+}
+
 struct EncodedPacket
 {
 	std::vector<uint8_t> data{};
@@ -294,9 +307,9 @@ struct AudioItem
 	std::vector<int16_t> samples{}; // interleaved stereo
 };
 
-struct StartFileItem { int fd; };
+struct StartFileItem { int fd; std::string path; };
 struct StopFileItem {};
-struct SaveReplayItem { int fd; };
+struct SaveReplayItem { int fd; std::string path; };
 
 using WorkItem = std::variant<VideoFrameItem, AudioItem, StartFileItem, StopFileItem, SaveReplayItem>;
 
@@ -308,8 +321,10 @@ struct MediaEncoderSession
 	std::thread thread;
 	std::mutex mutex;
 	std::condition_variable cond;
+	std::condition_variable idleCond;
 	std::deque<WorkItem> queue;
 	bool quit{};
+	bool busy{}; // worker is handling an item
 
 	// emulation thread state
 	int64_t emuAudioSamples{}; // total samples (at encodeSampleRate) given to the encoder, used as the clock
@@ -329,6 +344,7 @@ struct MediaEncoderSession
 	int64_t audioSamplesQueued{};
 	std::deque<PacketPtr> ring;
 	std::unique_ptr<Mp4Writer> file;
+	std::string filePath;
 
 	MediaEncoderSession(EmuApp &app, int scale, int64_t replayDurationUs):
 		app{app}, scale{scale}, replayDurationUs{replayDurationUs}
@@ -361,6 +377,13 @@ struct MediaEncoderSession
 		return queue.size();
 	}
 
+	// returns false if the worker is still busy after the timeout
+	bool waitUntilIdle(std::chrono::milliseconds timeout)
+	{
+		std::unique_lock lock{mutex};
+		return idleCond.wait_for(lock, timeout, [&]{ return queue.empty() && !busy; });
+	}
+
 	void run()
 	{
 		log.info("encoder thread started");
@@ -374,9 +397,15 @@ struct MediaEncoderSession
 					break; // quit requested with no more work
 				item = std::move(queue.front());
 				queue.pop_front();
+				busy = true;
 			}
 			process(item);
 			drain();
+			{
+				std::lock_guard lock{mutex};
+				busy = false;
+			}
+			idleCond.notify_all();
 		}
 		if(file)
 		{
@@ -432,6 +461,7 @@ struct MediaEncoderSession
 		if(file)
 			finishFile();
 		file = std::make_unique<Mp4Writer>(s.fd);
+		filePath = std::move(s.path);
 		requestKeyFrame();
 		log.info("started recording to file");
 	}
@@ -446,18 +476,20 @@ struct MediaEncoderSession
 		if(ring.empty() || !videoFormat || !audioFormat)
 		{
 			::close(s.fd);
-			postFromThread(app, "Nothing to save yet, play for a moment first", true);
+			postFileDone(app, std::move(s.path), false, "Nothing to save yet, play for a moment first", true);
 			return;
 		}
 		// copy the packet list so the file can be written without blocking the encoder
 		std::vector<PacketPtr> packets{ring.begin(), ring.end()};
-		makeDetachedThread([appPtr = &app, fd = s.fd, packets = std::move(packets), vFmt = videoFormat, aFmt = audioFormat, durationUs = replayDurationUs]()
+		makeDetachedThread([appPtr = &app, fd = s.fd, path = std::move(s.path), packets = std::move(packets),
+			vFmt = videoFormat, aFmt = audioFormat, durationUs = replayDurationUs]()
 		{
-			writeReplay(*appPtr, fd, packets, vFmt, aFmt, durationUs);
+			writeReplay(*appPtr, fd, path, packets, vFmt, aFmt, durationUs);
 		});
 	}
 
-	static void writeReplay(EmuApp &app, int fd, const std::vector<PacketPtr> &packets, FormatPtr vFmt, FormatPtr aFmt, int64_t durationUs)
+	static void writeReplay(EmuApp &app, int fd, std::string path, const std::vector<PacketPtr> &packets,
+		FormatPtr vFmt, FormatPtr aFmt, int64_t durationUs)
 	{
 		int64_t newestPts{};
 		for(auto &p : packets) { if(!p->isAudio) newestPts = std::max(newestPts, p->ptsUs); }
@@ -476,7 +508,7 @@ struct MediaEncoderSession
 		if(startIdx == packets.size())
 		{
 			::close(fd);
-			postFromThread(app, "Nothing to save yet, play for a moment first", true);
+			postFileDone(app, std::move(path), false, "Nothing to save yet, play for a moment first", true);
 			return;
 		}
 		Mp4Writer writer{fd};
@@ -489,8 +521,10 @@ struct MediaEncoderSession
 			writer.write(*p, vFmt, aFmt);
 		}
 		auto secs = writer.duration() / 1000000.;
-		writer.finish();
-		postFromThread(app, std::format("Saved instant replay ({:.0f}s)", secs), false);
+		if(writer.finish())
+			postFileDone(app, std::move(path), true, std::format("Saved instant replay ({:.0f}s)", secs), false);
+		else
+			postFileDone(app, std::move(path), false, "Couldn't save the instant replay", true);
 	}
 
 	void finishFile()
@@ -501,9 +535,10 @@ struct MediaEncoderSession
 		bool hadData = file->finish();
 		file.reset();
 		if(hadData)
-			postFromThread(app, std::format("Saved video recording ({:.0f}s)", secs), false);
+			postFileDone(app, std::move(filePath), true, std::format("Saved video recording ({:.0f}s)", secs), false);
 		else
-			postFromThread(app, "Recording stopped before any video was captured", true);
+			postFileDone(app, std::move(filePath), false, "Recording stopped before any video was captured", true);
+		filePath.clear();
 	}
 
 	void requestKeyFrame()
@@ -864,7 +899,7 @@ static FS::PathString makeRecordingPath(EmuApp &app, std::string_view suffix)
 		app.appContext().formatDateAndTimeAsFilename(WallClock::now()).append(suffix).append(".mp4"));
 }
 
-static int openRecordingFile(EmuApp &app, std::string_view suffix)
+static int openRecordingFile(EmuApp &app, std::string_view suffix, std::string &pathOut)
 {
 	auto path = makeRecordingPath(app, suffix);
 	auto fd = app.appContext().openFileUriFd(path, {.read = true, .write = true, .create = true, .truncate = true}).release();
@@ -873,6 +908,7 @@ static int openRecordingFile(EmuApp &app, std::string_view suffix)
 		log.error("error opening:{}", path);
 		app.postErrorMessage(4, "Can't create video file, check Options ➔ File Paths ➔ Screenshots");
 	}
+	pathOut = std::string_view{path};
 	return fd;
 }
 
@@ -939,11 +975,13 @@ bool MediaRecorder::startRecording()
 		app.postErrorMessage("Video recording needs Android 5.0 or newer");
 		return false;
 	}
-	auto fd = openRecordingFile(app, "");
+	std::string path;
+	auto fd = openRecordingFile(app, "", path);
 	if(fd == -1)
 		return false;
+	trackFile(path);
 	startSession();
-	session->push(StartFileItem{fd});
+	session->push(StartFileItem{fd, std::move(path)});
 	recordingRequested = true;
 	app.defaultVController().updateAppKeyHighlight(AppKeyCode::toggleVideoRecording, true);
 	app.postMessage(2, false, "Recording started");
@@ -1058,10 +1096,12 @@ bool MediaRecorder::saveReplay()
 		return false;
 	}
 	#ifdef __ANDROID__
-	auto fd = openRecordingFile(app, "-replay");
+	std::string path;
+	auto fd = openRecordingFile(app, "-replay", path);
 	if(fd == -1)
 		return false;
-	session->push(SaveReplayItem{fd});
+	trackFile(path);
+	session->push(SaveReplayItem{fd, std::move(path)});
 	app.postMessage(1, false, "Saving instant replay...");
 	return true;
 	#else
@@ -1074,6 +1114,109 @@ void MediaRecorder::onSystemClosed()
 	if(recordingRequested)
 		stopRecording();
 	endSession();
+}
+
+void MediaRecorder::onAppBackgrounded()
+{
+	if(!recordingRequested)
+		return;
+	stopRecording();
+	#ifdef __ANDROID__
+	// finish the file now since Android may kill the app at any time while it's in the background
+	if(session && !session->waitUntilIdle(std::chrono::seconds{3}))
+		log.warn("timed out waiting for the recording to finish");
+	#endif
+}
+
+// Files being written are listed in this file, so ones left unplayable by a crash
+// or the app being killed can be found and deleted on the next launch
+static FS::PathString openFileListPath(EmuApp &app)
+{
+	return FS::pathString(app.appContext().supportPath(), "recordingsInProgress");
+}
+
+// MediaMuxer only writes the MP4 index ('moov' box) when a file is closed properly
+static bool isFinishedMp4(ApplicationContext ctx, CStringView uri)
+{
+	auto io = ctx.openFileUri(uri, {.test = true});
+	if(!io)
+		return false;
+	const int64_t fileSize = io.size();
+	int64_t pos{};
+	while(pos + 8 <= fileSize)
+	{
+		uint8_t hdr[16];
+		if(io.read(hdr, 8, off_t(pos)) != 8)
+			return false;
+		if(std::memcmp(hdr + 4, "moov", 4) == 0)
+			return true;
+		uint64_t boxSize = (uint32_t(hdr[0]) << 24) | (uint32_t(hdr[1]) << 16) | (uint32_t(hdr[2]) << 8) | hdr[3];
+		if(boxSize == 1) // 64-bit size follows the type
+		{
+			if(io.read(hdr + 8, 8, off_t(pos + 8)) != 8)
+				return false;
+			boxSize = 0;
+			for(int i = 8; i < 16; i++) { boxSize = (boxSize << 8) | hdr[i]; }
+		}
+		if(boxSize < 8 || boxSize > uint64_t(fileSize - pos))
+			return false; // box runs to the end of the file or is cut off, no index after it
+		pos += int64_t(boxSize);
+	}
+	return false;
+}
+
+void MediaRecorder::deleteUnfinishedFiles()
+{
+	auto ctx = app.appContext();
+	auto listPath = openFileListPath(app);
+	auto buff = FileUtils::bufferFromPath(listPath, {.test = true});
+	if(!buff.size())
+		return;
+	for(auto line : std::views::split(buff.stringView(), '\n'))
+	{
+		std::string path(line.begin(), line.end());
+		if(path.empty())
+			continue;
+		// the app could've been killed after finishing the file but before updating the list
+		if(isFinishedMp4(ctx, path))
+		{
+			log.info("keeping finished recording:{}", path);
+			continue;
+		}
+		log.info("deleting unfinished recording:{}", path);
+		ctx.removeFileUri(path);
+	}
+	ctx.removeFileUri(listPath);
+}
+
+void MediaRecorder::trackFile(const std::string &path)
+{
+	openFiles.emplace_back(path);
+	saveOpenFileList();
+}
+
+void MediaRecorder::onFileDone(const std::string &path, bool keepFile)
+{
+	if(!keepFile)
+	{
+		log.info("deleting empty recording:{}", path);
+		app.appContext().removeFileUri(path);
+	}
+	std::erase(openFiles, path);
+	saveOpenFileList();
+}
+
+void MediaRecorder::saveOpenFileList()
+{
+	auto listPath = openFileListPath(app);
+	if(openFiles.empty())
+	{
+		app.appContext().removeFileUri(listPath);
+		return;
+	}
+	std::string text;
+	for(auto &p : openFiles) { text.append(p).append("\n"); }
+	FileUtils::writeToPath(listPath, std::span{reinterpret_cast<const unsigned char*>(text.data()), text.size()});
 }
 
 bool MediaRecorder::readConfig(MapIO &io, unsigned key)

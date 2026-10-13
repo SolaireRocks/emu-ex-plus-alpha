@@ -101,6 +101,12 @@ Start or stop with the REC button, or from *System Actions ➔ Start Video Recor
 Videos are saved as MP4 in the screenshots folder, under `recordings`.
 Resolution is set in *Options ➔ Extras ➔ Video Resolution* (default 2x).
 
+Switching to another app stops and saves the recording, since Android may close the app while it's in the
+background. Tap REC again when you come back to start a new video.
+
+Empty videos (stopped before anything was captured, or a CLIP with nothing to save yet) are deleted right away.
+If the app crashes or is closed mid-recording, the unplayable video is deleted the next time the app starts.
+
 ## Instant replay
 
 The CLIP button saves the last 30 seconds of gameplay as an MP4. The length is set in *Options ➔ Extras*.

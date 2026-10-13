@@ -50,7 +50,7 @@ There is no local toolchain on the Windows dev machine. Builds run only in GitHu
 | Layout export/import | `VController::{export,import}Layout` (config-format file with marker key 216), TouchConfigView items + `onDocumentPicked`, `ApplicationContext::showSystemCreateDocumentPicker(suggestedName)` (Java `createDocument(long, String)`, kept in `imagine/src/base/android/proguard/imagine.cfg`) |
 | Double-tap screenshot | `VController::checkDoubleTap` |
 | High-res screenshots | `EmuVideo::doScreenshot` (nearest-neighbor scale, optional 4:3) |
-| Video recording and instant replay | `MediaRecorder.{hh,cc}` (NDK MediaCodec/MediaMuxer via dlopen), hooks in `EmuVideo::finishFrame`, `EmuAudio::writeFrames`, `EmuSystemTask::advanceFrames` |
+| Video recording and instant replay | `MediaRecorder.{hh,cc}` (NDK MediaCodec/MediaMuxer via dlopen), hooks in `EmuVideo::finishFrame`, `EmuAudio::writeFrames`, `EmuSystemTask::advanceFrames`. Files being written are listed in `<supportPath>/recordingsInProgress`; `deleteUnfinishedFiles` (startup) deletes listed files without a `moov` box. `onAppBackgrounded` stops recording and waits up to 3s for the file to finish |
 | Options UI | `gui/ExtrasOptionView.cc` (Options ➔ Extras), System Actions entries |
 
 Index buffer updates in `imagine/src/gfx/opengl/Buffer.cc` unbind the current VAO first (`bindForUpdate`); otherwise

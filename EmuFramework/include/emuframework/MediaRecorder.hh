@@ -29,6 +29,8 @@ class FileIO;
 #ifndef IG_USE_MODULE_STD
 #include <atomic>
 #include <memory>
+#include <string>
+#include <vector>
 #endif
 
 namespace EmuEx
@@ -68,6 +70,9 @@ public:
 	bool replayBufferWanted() const;
 	void updateSessionState(); // start or stop the encoder depending on current options
 	void onSystemClosed();
+	void onAppBackgrounded(); // stops and finishes any recording, since the app may be killed in the background
+	void deleteUnfinishedFiles(); // removes files left unplayable by a crash, call at startup
+	void onFileDone(const std::string &path, bool keepFile); // called once the encoder is done writing a file
 	bool readConfig(MapIO &, unsigned key);
 	void writeConfig(FileIO &) const;
 
@@ -86,9 +91,12 @@ private:
 	std::unique_ptr<MediaEncoderSession> session;
 	std::atomic_bool active{};
 	bool recordingRequested{};
+	std::vector<std::string> openFiles; // files still being written, also saved to disk in case the app is killed
 
 	void startSession();
 	void endSession();
+	void trackFile(const std::string &path);
+	void saveOpenFileList();
 };
 
 }
