@@ -346,6 +346,8 @@ void EmuSystem::closeAndSetupNew(CStringView path, std::string_view displayName)
 {
 	auto &app = EmuApp::get(appContext());
 	closeRuntimeSystem(app);
+	// the previous game's layout was just saved, don't carry it over to the new game
+	app.defaultVController().restoreGlobalLayout();
 	if(!isUri(path))
 		setupContentFilePaths(path, displayName);
 	else

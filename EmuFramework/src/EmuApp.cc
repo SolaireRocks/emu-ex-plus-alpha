@@ -339,6 +339,9 @@ void EmuApp::mainInitCommon(ApplicationInitParams initParams, ApplicationContext
 			audio.manager.endSession();
 			saveConfigFile(ctx);
 			saveSystemOptions();
+			// the app can be killed while backgrounded, so save per-game options (incl. layout) now
+			if(system().hasContent())
+				saveSessionOptions();
 			if(!backgrounded || (backgrounded && !keepBluetoothActive))
 				closeBluetoothConnections();
 			onEvent(ctx, FreeCachesEvent{false});
